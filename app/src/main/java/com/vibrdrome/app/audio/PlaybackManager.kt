@@ -17,6 +17,7 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import com.vibrdrome.app.network.Song
 import com.vibrdrome.app.network.SubsonicClient
+import com.vibrdrome.app.persistence.DownloadDao
 import com.vibrdrome.app.persistence.PlaybackStateDao
 import com.vibrdrome.app.persistence.SavedPlaybackState
 import com.vibrdrome.app.ui.AppState
@@ -80,6 +81,7 @@ class PlaybackManager(
     context: Context,
     private val appState: AppState,
     private val playbackStateDao: PlaybackStateDao,
+    private val downloadDao: DownloadDao,
     val sleepTimer: SleepTimer,
     val eqCoefficientsStore: EQCoefficientsStore,
 ) {
@@ -90,7 +92,7 @@ class PlaybackManager(
     val biquadProcessor = BiquadAudioProcessor(eqCoefficientsStore)
 
     @OptIn(UnstableApi::class)
-    val player: ExoPlayer = ExoPlayer.Builder(appContext).build()
+    val player: ExoPlayer = createPlayerWithEQ()
 
     private val _queue = MutableStateFlow<List<Song>>(emptyList())
     val queue: StateFlow<List<Song>> = _queue.asStateFlow()
@@ -256,13 +258,15 @@ class PlaybackManager(
         ensureServiceStarted()
         _queue.value = songs
         val client = appState.subsonicClient
-        val mediaItems = songs.map { it.toMediaItem(client) }
-        player.setMediaItems(mediaItems, startIndex, 0L)
-        player.prepare()
-        player.play()
-        updateCurrentSong()
-        updateReplayGain()
-        scheduleSave()
+        scope.launch {
+            val mediaItems = songs.map { it.toMediaItemResolved(client) }
+            player.setMediaItems(mediaItems, startIndex, 0L)
+            player.prepare()
+            player.play()
+            updateCurrentSong()
+            updateReplayGain()
+            scheduleSave()
+        }
     }
 
     fun playShuffle(songs: List<Song>) {
@@ -533,11 +537,16 @@ class PlaybackManager(
         updateReplayGain()
     }
 
-    private fun Song.toMediaItem(client: SubsonicClient): MediaItem {
+    private fun Song.toMediaItem(client: SubsonicClient, localPath: String? = null): MediaItem {
         val artUri = coverArt?.let { Uri.parse(client.coverArtURL(it, size = 480)) }
+        val streamUri = if (localPath != null) {
+            Uri.fromFile(java.io.File(localPath)).toString()
+        } else {
+            client.streamURL(id)
+        }
         return MediaItem.Builder()
             .setMediaId(id)
-            .setUri(client.streamURL(id))
+            .setUri(streamUri)
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(title)
@@ -547,5 +556,10 @@ class PlaybackManager(
                     .build()
             )
             .build()
+    }
+
+    private suspend fun Song.toMediaItemResolved(client: SubsonicClient): MediaItem {
+        val local = downloadDao.getBySongId(id)
+        return toMediaItem(client, local?.filePath)
     }
 }

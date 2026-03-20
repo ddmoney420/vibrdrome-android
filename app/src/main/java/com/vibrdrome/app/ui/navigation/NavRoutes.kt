@@ -78,6 +78,9 @@ data object FolderBrowserRoute
 data class FolderDetailRoute(val directoryId: String, val title: String? = null)
 
 @Serializable
+data object StationSearchRoute
+
+@Serializable
 data object DownloadsRoute
 
 @Serializable

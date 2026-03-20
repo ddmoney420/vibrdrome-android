@@ -24,7 +24,7 @@ val appModule = module {
     single { EQCoefficientsStore() }
     single { SleepTimer() }
     single { EQEngine(get()) }
-    single { PlaybackManager(get(), get(), get(), get(), get()) }
+    single { PlaybackManager(get(), get(), get(), get(), get(), get()) }
     single { DownloadManager(get(), get(), get()) }
     single { RadioManager() }
     single { CacheManager(get(), get()) }

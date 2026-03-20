@@ -17,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Radio
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -46,6 +47,7 @@ import org.koin.compose.koinInject
 fun RadioScreen(
     client: SubsonicClient,
     onNavigateBack: () -> Unit = {},
+    onSearchStations: () -> Unit = {},
 ) {
     val playbackManager: PlaybackManager = koinInject()
     var stations by remember { mutableStateOf<List<InternetRadioStation>>(emptyList()) }
@@ -65,6 +67,11 @@ fun RadioScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                actions = {
+                    IconButton(onClick = onSearchStations) {
+                        Icon(Icons.Default.Search, contentDescription = "Search Stations")
                     }
                 },
             )

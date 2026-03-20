@@ -60,6 +60,7 @@ import com.vibrdrome.app.ui.playlists.PlaylistEditorScreen
 import com.vibrdrome.app.ui.playlists.PlaylistsScreen
 import com.vibrdrome.app.ui.playlists.SmartPlaylistScreen
 import com.vibrdrome.app.ui.radio.RadioScreen
+import com.vibrdrome.app.ui.radio.StationSearchScreen
 import com.vibrdrome.app.ui.search.SearchScreen
 import com.vibrdrome.app.ui.settings.ServerConfigScreen
 import com.vibrdrome.app.ui.settings.ServerManagerScreen
@@ -298,7 +299,14 @@ private fun VibrdromeNavHost(appState: AppState) {
 
             // Radio
             composable<RadioRoute> {
-                RadioScreen(client = appState.subsonicClient, onNavigateBack = { navController.popBackStack() })
+                RadioScreen(
+                    client = appState.subsonicClient,
+                    onNavigateBack = { navController.popBackStack() },
+                    onSearchStations = { navController.navigate(StationSearchRoute) },
+                )
+            }
+            composable<StationSearchRoute> {
+                StationSearchScreen(onNavigateBack = { navController.popBackStack() })
             }
 
             // Settings
