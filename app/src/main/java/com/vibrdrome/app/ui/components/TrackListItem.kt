@@ -48,6 +48,8 @@ fun TrackListItem(
     appState: AppState = koinInject(),
     downloadManager: DownloadManager = koinInject(),
     radioManager: RadioManager = koinInject(),
+    onGoToAlbum: ((String) -> Unit)? = null,
+    onGoToArtist: ((String) -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
     var showMenu by remember { mutableStateOf(false) }
@@ -132,6 +134,24 @@ fun TrackListItem(
                         playbackManager.addToQueue(song)
                     },
                 )
+                if (onGoToAlbum != null && song.albumId != null) {
+                    DropdownMenuItem(
+                        text = { Text("Go to Album") },
+                        onClick = {
+                            showMenu = false
+                            onGoToAlbum(song.albumId!!)
+                        },
+                    )
+                }
+                if (onGoToArtist != null && song.artistId != null) {
+                    DropdownMenuItem(
+                        text = { Text("Go to Artist") },
+                        onClick = {
+                            showMenu = false
+                            onGoToArtist(song.artistId!!)
+                        },
+                    )
+                }
                 DropdownMenuItem(
                     text = { Text("Song Radio") },
                     onClick = {

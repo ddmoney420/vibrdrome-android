@@ -330,10 +330,15 @@ private fun VibrdromeNavHost(appState: AppState) {
 
             // Player
             composable<NowPlayingRoute> {
-                NowPlayingScreen(playbackManager, { navController.popBackStack() },
-                    { navController.navigate(QueueRoute) },
-                    { navController.navigate(EQRoute) },
-                    { navController.navigate(LyricsRoute) })
+                NowPlayingScreen(
+                    playbackManager = playbackManager,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToQueue = { navController.navigate(QueueRoute) },
+                    onNavigateToEQ = { navController.navigate(EQRoute) },
+                    onNavigateToLyrics = { navController.navigate(LyricsRoute) },
+                    onNavigateToAlbum = { navController.navigate(AlbumDetailRoute(it)) },
+                    onNavigateToArtist = { navController.navigate(ArtistDetailRoute(it)) },
+                )
             }
             composable<QueueRoute> {
                 QueueScreen(playbackManager) { navController.popBackStack() }

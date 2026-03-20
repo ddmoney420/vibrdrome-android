@@ -1,5 +1,6 @@
 package com.vibrdrome.app.ui.player
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,6 +62,8 @@ fun NowPlayingScreen(
     onNavigateToQueue: () -> Unit = {},
     onNavigateToEQ: () -> Unit = {},
     onNavigateToLyrics: () -> Unit = {},
+    onNavigateToAlbum: ((String) -> Unit)? = null,
+    onNavigateToArtist: ((String) -> Unit)? = null,
 ) {
     val currentSong by playbackManager.currentSong.collectAsState()
     val isPlaying by playbackManager.isPlaying.collectAsState()
@@ -152,6 +155,8 @@ fun NowPlayingScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                modifier = if (onNavigateToArtist != null && song.artistId != null)
+                    Modifier.clickable { onNavigateToArtist(song.artistId!!) } else Modifier,
             )
             song.album?.let {
                 Text(
@@ -160,6 +165,8 @@ fun NowPlayingScreen(
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = if (onNavigateToAlbum != null && song.albumId != null)
+                        Modifier.clickable { onNavigateToAlbum(song.albumId!!) } else Modifier,
                 )
             }
 

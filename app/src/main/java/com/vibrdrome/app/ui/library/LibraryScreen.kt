@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -128,9 +129,22 @@ fun LibraryScreen(
         },
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
     ) { padding ->
+        var isRefreshing by remember { mutableStateOf(false) }
+        PullToRefreshBox(
+            isRefreshing = isRefreshing,
+            onRefresh = {
+                isRefreshing = true
+                scope.launch {
+                    try { recentAlbums = client.getAlbumList(AlbumListType.NEWEST, size = 10) } catch (_: Exception) {}
+                    try { frequentAlbums = client.getAlbumList(AlbumListType.FREQUENT, size = 10) } catch (_: Exception) {}
+                    try { randomAlbums = client.getAlbumList(AlbumListType.RANDOM, size = 10) } catch (_: Exception) {}
+                    isRefreshing = false
+                }
+            },
+            modifier = Modifier.padding(padding),
+        ) {
         Column(
             modifier = Modifier
-                .padding(padding)
                 .verticalScroll(rememberScrollState()),
         ) {
             // Quick access pills
@@ -204,6 +218,7 @@ fun LibraryScreen(
             }
 
             Spacer(Modifier.height(80.dp)) // Bottom padding for mini player
+        }
         }
     }
 }
