@@ -56,11 +56,9 @@ class SubsonicClient(
             is SubsonicEndpoint.SavePlayQueue -> allParams.addAll(endpoint.idParams)
             else -> {}
         }
-        allParams.forEach { (k, v) -> Log.d(TAG, "  param: $k = '$v' (len=${v.length})") }
         val query = allParams.joinToString("&") { (k, v) ->
             "${enc(k)}=${enc(v)}"
         }
-        Log.d(TAG, "Built URL query: $query")
         return "$baseURL${endpoint.path}?$query"
     }
 
@@ -114,7 +112,6 @@ class SubsonicClient(
 
     private suspend fun performRequest(endpoint: SubsonicEndpoint): SubsonicResponseBody {
         val url = buildUrl(endpoint)
-        Log.d(TAG, "Request: $url")
         val response = httpClient.get(url)
 
         if (!response.status.isSuccess()) {
@@ -126,9 +123,7 @@ class SubsonicClient(
             throw SubsonicError.HttpError(statusCode)
         }
 
-        val bodyText = response.bodyAsText()
-        val rawBytes = bodyText.toByteArray(Charsets.UTF_8)
-        Log.d(TAG, "Response for ${endpoint.path}: ${bodyText.take(500)}")
+        val rawBytes = response.readRawBytes()
         val body = decodeResponse(rawBytes, endpoint.path)
 
         // Cache the raw response data on success

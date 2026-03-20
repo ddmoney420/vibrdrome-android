@@ -84,6 +84,9 @@ data object StationSearchRoute
 data object AddStationRoute
 
 @Serializable
+data object VisualizerRoute
+
+@Serializable
 data object DownloadsRoute
 
 @Serializable

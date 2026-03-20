@@ -59,6 +59,7 @@ fun AlbumDetailScreen(
     albumId: String,
     client: SubsonicClient,
     onNavigateBack: () -> Unit = {},
+    onNavigateToArtist: ((String) -> Unit)? = null,
 ) {
     val playbackManager: PlaybackManager = koinInject()
     var album by remember { mutableStateOf<Album?>(null) }
@@ -138,7 +139,10 @@ fun AlbumDetailScreen(
                                     Text(
                                         text = artist,
                                         style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = if (onNavigateToArtist != null && currentAlbum.artistId != null)
+                                            Modifier.clickable { onNavigateToArtist(currentAlbum.artistId!!) }
+                                        else Modifier,
                                     )
                                 }
 
@@ -228,6 +232,7 @@ fun AlbumDetailScreen(
                                 song = song,
                                 showTrackNumber = true,
                                 onClick = { playbackManager.play(songs, index) },
+                                onGoToArtist = onNavigateToArtist,
                             )
                             HorizontalDivider(Modifier.padding(start = 56.dp))
                         }

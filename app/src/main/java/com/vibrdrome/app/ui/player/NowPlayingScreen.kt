@@ -16,6 +16,7 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Subtitles
+import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -64,6 +65,7 @@ fun NowPlayingScreen(
     onNavigateToLyrics: () -> Unit = {},
     onNavigateToAlbum: ((String) -> Unit)? = null,
     onNavigateToArtist: ((String) -> Unit)? = null,
+    onNavigateToVisualizer: () -> Unit = {},
 ) {
     val currentSong by playbackManager.currentSong.collectAsState()
     val isPlaying by playbackManager.isPlaying.collectAsState()
@@ -109,6 +111,9 @@ fun NowPlayingScreen(
                     }
                 },
                 actions = {
+                    IconButton(onClick = onNavigateToVisualizer) {
+                        Icon(Icons.Default.Waves, contentDescription = "Visualizer")
+                    }
                     IconButton(onClick = onNavigateToLyrics) {
                         Icon(Icons.Default.Subtitles, contentDescription = "Lyrics")
                     }

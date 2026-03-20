@@ -55,6 +55,7 @@ import com.vibrdrome.app.ui.player.LyricsScreen
 import com.vibrdrome.app.ui.player.MiniPlayer
 import com.vibrdrome.app.ui.player.NowPlayingScreen
 import com.vibrdrome.app.ui.player.QueueScreen
+import com.vibrdrome.app.ui.player.VisualizerScreen
 import com.vibrdrome.app.ui.playlists.PlaylistDetailScreen
 import com.vibrdrome.app.ui.playlists.PlaylistEditorScreen
 import com.vibrdrome.app.ui.playlists.PlaylistsScreen
@@ -212,6 +213,7 @@ private fun VibrdromeNavHost(appState: AppState) {
                     albumId = e.toRoute<AlbumDetailRoute>().albumId,
                     client = appState.subsonicClient,
                     onNavigateBack = { navController.popBackStack() },
+                    onNavigateToArtist = { navController.navigate(ArtistDetailRoute(it)) },
                 )
             }
             composable<AlbumsListRoute> { e ->
@@ -343,12 +345,16 @@ private fun VibrdromeNavHost(appState: AppState) {
                     onNavigateToLyrics = { navController.navigate(LyricsRoute) },
                     onNavigateToAlbum = { navController.navigate(AlbumDetailRoute(it)) },
                     onNavigateToArtist = { navController.navigate(ArtistDetailRoute(it)) },
+                    onNavigateToVisualizer = { navController.navigate(VisualizerRoute) },
                 )
             }
             composable<QueueRoute> {
                 QueueScreen(playbackManager) { navController.popBackStack() }
             }
             composable<EQRoute> { EQScreen { navController.popBackStack() } }
+            composable<VisualizerRoute> {
+                VisualizerScreen(playbackManager) { navController.popBackStack() }
+            }
             composable<LyricsRoute> {
                 LyricsScreen(playbackManager, appState.subsonicClient) { navController.popBackStack() }
             }
