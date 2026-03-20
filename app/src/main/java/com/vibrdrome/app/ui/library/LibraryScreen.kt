@@ -160,7 +160,9 @@ fun LibraryScreen(
                                 com.vibrdrome.app.network.AlbumListType.RANDOM, size = 1
                             )
                             val album = albums.firstOrNull() ?: return@launch
-                            onNavigateToAlbumDetail(album.id)
+                            val full = client.getAlbum(album.id)
+                            val songs = full.song ?: return@launch
+                            if (songs.isNotEmpty()) playbackManager.play(songs)
                         } catch (_: Throwable) {}
                     }
                 },
