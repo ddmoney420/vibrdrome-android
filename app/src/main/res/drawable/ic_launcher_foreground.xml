@@ -4,10 +4,21 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path
-        android:fillColor="#1976D2"
-        android:pathData="M54,54m-40,0a40,40 0,1 1,80 0a40,40 0,1 1,-80 0" />
+    <!-- Vibrdrome: Audio waveform / EQ bars icon -->
+    <!-- 5 equalizer bars of varying heights -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M44,36v36l28,-18z" />
+        android:pathData="M30,62 L30,46 Q30,44 32,44 L34,44 Q36,44 36,46 L36,62 Q36,64 34,64 L32,64 Q30,64 30,62 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M40,68 L40,34 Q40,32 42,32 L44,32 Q46,32 46,34 L46,68 Q46,70 44,70 L42,70 Q40,70 40,68 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M50,72 L50,28 Q50,26 52,26 L54,26 Q56,26 56,28 L56,72 Q56,74 54,74 L52,74 Q50,74 50,72 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M60,66 L60,38 Q60,36 62,36 L64,36 Q66,36 66,38 L66,66 Q66,68 64,68 L62,68 Q60,68 60,66 Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,60 L70,48 Q70,46 72,46 L74,46 Q76,46 76,48 L76,60 Q76,62 74,62 L72,62 Q70,62 70,60 Z" />
 </vector>
