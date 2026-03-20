@@ -87,6 +87,7 @@ class PlaybackManager(
 ) {
     private val appContext = context.applicationContext
     private val json = Json { ignoreUnknownKeys = true }
+    private val prefs = appContext.getSharedPreferences("playback_prefs", android.content.Context.MODE_PRIVATE)
 
     @OptIn(UnstableApi::class)
     val biquadProcessor = BiquadAudioProcessor(eqCoefficientsStore)
@@ -121,13 +122,13 @@ class PlaybackManager(
     private val _shuffleEnabled = MutableStateFlow(false)
     val shuffleEnabled: StateFlow<Boolean> = _shuffleEnabled.asStateFlow()
 
-    private val _playbackSpeed = MutableStateFlow(1.0f)
+    private val _playbackSpeed = MutableStateFlow(prefs.getFloat("playback_speed", 1.0f))
     val playbackSpeed: StateFlow<Float> = _playbackSpeed.asStateFlow()
 
-    private val _crossfadeEnabled = MutableStateFlow(false)
+    private val _crossfadeEnabled = MutableStateFlow(prefs.getBoolean("crossfade_enabled", false))
     val crossfadeEnabled: StateFlow<Boolean> = _crossfadeEnabled.asStateFlow()
 
-    private var crossfadeDurationMs = 5000L
+    private var crossfadeDurationMs = prefs.getLong("crossfade_duration", 5000L)
     private var crossfadeFactor = 1.0f
     private var fadeInJob: Job? = null
 
@@ -211,6 +212,12 @@ class PlaybackManager(
             }
         }
 
+        // Restore saved playback speed
+        val savedSpeed = _playbackSpeed.value
+        if (savedSpeed != 1.0f) {
+            player.playbackParameters = PlaybackParameters(savedSpeed)
+        }
+
         scope.launch { restoreQueue() }
     }
 
@@ -225,6 +232,7 @@ class PlaybackManager(
 
     fun setCrossfadeEnabled(enabled: Boolean) {
         _crossfadeEnabled.value = enabled
+        prefs.edit().putBoolean("crossfade_enabled", enabled).apply()
         if (!enabled) {
             fadeInJob?.cancel()
             crossfadeFactor = 1.0f
@@ -234,6 +242,7 @@ class PlaybackManager(
 
     fun setCrossfadeDuration(durationMs: Long) {
         crossfadeDurationMs = durationMs.coerceIn(1000, 12000)
+        prefs.edit().putLong("crossfade_duration", crossfadeDurationMs).apply()
     }
 
     private fun applyVolume() {
@@ -338,6 +347,7 @@ class PlaybackManager(
     fun setPlaybackSpeed(speed: Float) {
         player.playbackParameters = PlaybackParameters(speed)
         _playbackSpeed.value = speed
+        prefs.edit().putFloat("playback_speed", speed).apply()
     }
 
     // MARK: - Radio

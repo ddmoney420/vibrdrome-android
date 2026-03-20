@@ -235,7 +235,12 @@ private fun VibrdromeNavHost(appState: AppState) {
                 )
             }
             composable<SongsRoute> {
-                SongsScreen(client = appState.subsonicClient, onNavigateBack = { navController.popBackStack() })
+                SongsScreen(
+                    client = appState.subsonicClient,
+                    onNavigateBack = { navController.popBackStack() },
+                    onGoToAlbum = { navController.navigate(AlbumDetailRoute(it)) },
+                    onGoToArtist = { navController.navigate(ArtistDetailRoute(it)) },
+                )
             }
             composable<GenerationsRoute> {
                 GenerationsScreen(

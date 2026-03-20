@@ -42,6 +42,8 @@ import org.koin.compose.koinInject
 fun SongsScreen(
     client: SubsonicClient,
     onNavigateBack: () -> Unit = {},
+    onGoToAlbum: ((String) -> Unit)? = null,
+    onGoToArtist: ((String) -> Unit)? = null,
 ) {
     val playbackManager: PlaybackManager = koinInject()
     var songs by remember { mutableStateOf<List<Song>>(emptyList()) }
@@ -103,6 +105,8 @@ fun SongsScreen(
                         song = song,
                         showTrackNumber = false,
                         onClick = { playbackManager.play(songs, index) },
+                        onGoToAlbum = onGoToAlbum,
+                        onGoToArtist = onGoToArtist,
                     )
                     HorizontalDivider(Modifier.padding(start = 16.dp))
                 }

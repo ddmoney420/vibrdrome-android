@@ -160,6 +160,8 @@ fun FavoritesScreen(
                                     song = song,
                                     showTrackNumber = false,
                                     onClick = { playbackManager.play(songs, index) },
+                                    onGoToAlbum = { onAlbumClick(it) },
+                                    onGoToArtist = { onArtistClick(it) },
                                 )
                                 HorizontalDivider(Modifier.padding(start = 16.dp))
                             }
