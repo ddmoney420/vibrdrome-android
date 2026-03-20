@@ -9,7 +9,7 @@ import java.security.MessageDigest
 class SubsonicAuthTest {
 
     @Test
-    fun `auth parameters contain all required fields`() {
+    fun `password auth parameters contain all required fields`() {
         val auth = SubsonicAuth("testuser", "testpass")
         val params = auth.authParameters()
 
@@ -17,26 +17,45 @@ class SubsonicAuthTest {
         assertEquals("1.16.1", params["v"])
         assertEquals("vibrdrome", params["c"])
         assertEquals("json", params["f"])
+        assertTrue(params.containsKey("p"))
+    }
+
+    @Test
+    fun `password is hex encoded`() {
+        val auth = SubsonicAuth("user", "mypassword")
+        val params = auth.authParameters()
+
+        val p = params["p"]!!
+        assertTrue("Password should be hex-encoded with enc: prefix", p.startsWith("enc:"))
+    }
+
+    @Test
+    fun `token auth parameters contain salt and token`() {
+        val auth = SubsonicAuth("testuser", "testpass")
+        auth.useTokenAuth = true
+        val params = auth.authParameters()
+
         assertTrue(params.containsKey("t"))
         assertTrue(params.containsKey("s"))
+        assertEquals("testuser", params["u"])
     }
 
     @Test
     fun `token is MD5 of password plus salt`() {
         val auth = SubsonicAuth("user", "mypassword")
+        auth.useTokenAuth = true
         val params = auth.authParameters()
 
         val salt = params["s"]!!
         val token = params["t"]!!
-
-        // Manually compute expected token
         val expected = md5("mypassword$salt")
         assertEquals(expected, token)
     }
 
     @Test
-    fun `each call generates a different salt`() {
+    fun `each token call generates a different salt`() {
         val auth = SubsonicAuth("user", "pass")
+        auth.useTokenAuth = true
         val salt1 = auth.authParameters()["s"]
         val salt2 = auth.authParameters()["s"]
 
@@ -46,10 +65,20 @@ class SubsonicAuthTest {
     @Test
     fun `salt is 12 characters of lowercase alphanumeric`() {
         val auth = SubsonicAuth("user", "pass")
+        auth.useTokenAuth = true
         val salt = auth.authParameters()["s"]!!
 
         assertEquals(12, salt.length)
         assertTrue(salt.all { it in 'a'..'z' || it in '0'..'9' })
+    }
+
+    @Test
+    fun `defaults to password auth`() {
+        val auth = SubsonicAuth("user", "pass")
+        assertEquals(false, auth.useTokenAuth)
+        val params = auth.authParameters()
+        assertTrue(params.containsKey("p"))
+        assertTrue(!params.containsKey("t"))
     }
 
     private fun md5(input: String): String {

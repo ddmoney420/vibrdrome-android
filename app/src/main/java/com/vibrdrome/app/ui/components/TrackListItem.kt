@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.vibrdrome.app.audio.PlaybackManager
+import com.vibrdrome.app.audio.RadioManager
 import com.vibrdrome.app.downloads.DownloadManager
 import com.vibrdrome.app.network.Song
 import com.vibrdrome.app.ui.AppState
@@ -46,6 +47,7 @@ fun TrackListItem(
     playbackManager: PlaybackManager = koinInject(),
     appState: AppState = koinInject(),
     downloadManager: DownloadManager = koinInject(),
+    radioManager: RadioManager = koinInject(),
 ) {
     val scope = rememberCoroutineScope()
     var showMenu by remember { mutableStateOf(false) }
@@ -128,6 +130,15 @@ fun TrackListItem(
                     onClick = {
                         showMenu = false
                         playbackManager.addToQueue(song)
+                    },
+                )
+                DropdownMenuItem(
+                    text = { Text("Song Radio") },
+                    onClick = {
+                        showMenu = false
+                        scope.launch {
+                            radioManager.startSongRadio(song.id, song.title, appState.subsonicClient, playbackManager)
+                        }
                     },
                 )
                 DropdownMenuItem(

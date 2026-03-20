@@ -12,6 +12,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Info
@@ -30,15 +31,20 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.vibrdrome.app.audio.EQEngine
 import com.vibrdrome.app.audio.PlaybackManager
+import com.vibrdrome.app.downloads.CacheManager
 import com.vibrdrome.app.ui.AppState
 import org.koin.compose.koinInject
 
@@ -53,6 +59,12 @@ fun SettingsScreen(
 ) {
     val eqEngine: EQEngine = koinInject()
     val playbackManager: PlaybackManager = koinInject()
+    val cacheManager: CacheManager = koinInject()
+    var cacheSizeMb by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(Unit) {
+        cacheSizeMb = cacheManager.currentCacheSizeMb()
+    }
     val serverUrl by appState.serverURL.collectAsState()
     val username by appState.username.collectAsState()
     val eqEnabled by eqEngine.isEnabled.collectAsState()
@@ -61,6 +73,7 @@ fun SettingsScreen(
     val themeMode by appState.themeMode.collectAsState()
     var showThemeDialog by remember { mutableStateOf(false) }
     var showSignOutConfirm by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -143,6 +156,26 @@ fun SettingsScreen(
                 },
                 leadingContent = { Icon(Icons.Default.DarkMode, contentDescription = null) },
                 modifier = Modifier.clickable { showThemeDialog = true },
+            )
+            HorizontalDivider()
+
+            // Storage
+            SectionHeader("Storage")
+            ListItem(
+                headlineContent = { Text("Cache Size") },
+                supportingContent = { Text("${cacheSizeMb} MB used") },
+                leadingContent = { Icon(Icons.Default.Storage, contentDescription = null) },
+            )
+            ListItem(
+                headlineContent = { Text("Clear Cache") },
+                supportingContent = { Text("Remove cached API responses") },
+                leadingContent = { Icon(Icons.Default.Delete, contentDescription = null) },
+                modifier = Modifier.clickable {
+                    scope.launch {
+                        cacheManager.evictApiCache()
+                        cacheSizeMb = cacheManager.currentCacheSizeMb()
+                    }
+                },
             )
             HorizontalDivider()
 

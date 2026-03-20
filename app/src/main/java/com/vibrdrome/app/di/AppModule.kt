@@ -4,7 +4,9 @@ import androidx.room.Room
 import com.vibrdrome.app.audio.EQCoefficientsStore
 import com.vibrdrome.app.audio.EQEngine
 import com.vibrdrome.app.audio.PlaybackManager
+import com.vibrdrome.app.audio.RadioManager
 import com.vibrdrome.app.audio.SleepTimer
+import com.vibrdrome.app.downloads.CacheManager
 import com.vibrdrome.app.downloads.DownloadManager
 import com.vibrdrome.app.persistence.AppDatabase
 import com.vibrdrome.app.ui.AppState
@@ -24,4 +26,6 @@ val appModule = module {
     single { EQEngine(get()) }
     single { PlaybackManager(get(), get(), get(), get(), get()) }
     single { DownloadManager(get(), get(), get()) }
+    single { RadioManager() }
+    single { CacheManager(get(), get()) }
 }
