@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Casino
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.Favorite
@@ -30,6 +31,7 @@ import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.PlayCircle
+import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material.icons.filled.Radio
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
@@ -46,6 +48,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,9 +61,12 @@ import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.vibrdrome.app.audio.PlaybackManager
 import com.vibrdrome.app.network.Album
 import com.vibrdrome.app.network.AlbumListType
 import com.vibrdrome.app.network.SubsonicClient
+import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 import com.vibrdrome.app.ui.components.AlbumArtView
 import com.vibrdrome.app.ui.theme.VibrdromeTheme
 
@@ -82,6 +88,8 @@ fun LibraryScreen(
     onNavigateToSettings: () -> Unit = {},
     onNavigateToDownloads: () -> Unit = {},
 ) {
+    val playbackManager: PlaybackManager = koinInject()
+    val scope = rememberCoroutineScope()
     var recentAlbums by remember { mutableStateOf<List<Album>>(emptyList()) }
     var frequentAlbums by remember { mutableStateOf<List<Album>>(emptyList()) }
     var randomAlbums by remember { mutableStateOf<List<Album>>(emptyList()) }
@@ -137,6 +145,25 @@ fun LibraryScreen(
                 onNavigateToRadio = onNavigateToRadio,
                 onNavigateToFolders = onNavigateToFolders,
                 onNavigateToDownloads = onNavigateToDownloads,
+                onRandomMix = {
+                    scope.launch {
+                        try {
+                            val songs = client.getRandomSongs(size = 50)
+                            if (songs.isNotEmpty()) playbackManager.playShuffle(songs)
+                        } catch (_: Throwable) {}
+                    }
+                },
+                onRandomAlbum = {
+                    scope.launch {
+                        try {
+                            val albums = client.getAlbumList(
+                                com.vibrdrome.app.network.AlbumListType.RANDOM, size = 1
+                            )
+                            val album = albums.firstOrNull() ?: return@launch
+                            onNavigateToAlbumDetail(album.id)
+                        } catch (_: Throwable) {}
+                    }
+                },
             )
 
             Spacer(Modifier.height(20.dp))
@@ -191,26 +218,39 @@ private fun QuickAccessGrid(
     onNavigateToRadio: () -> Unit,
     onNavigateToFolders: () -> Unit,
     onNavigateToDownloads: () -> Unit,
+    onRandomMix: () -> Unit,
+    onRandomAlbum: () -> Unit,
 ) {
+    // Left column: Genres, Artists, Albums, Songs, Playlists, Generations, Random Mix
+    // Right column: Radio, Favorites, Folders, Downloads, Recently Added, Recently Played, Random Album
     val pills = listOf(
+        // Row 1
+        QuickAccessItem("Genres", Icons.Default.Category, Color(0xFF4CAF50), onNavigateToGenres),
+        QuickAccessItem("Radio", Icons.Default.Radio, Color(0xFFFF5722), onNavigateToRadio),
+        // Row 2
         QuickAccessItem("Artists", Icons.Default.Person, Color(0xFF9C27B0), onNavigateToArtists),
+        QuickAccessItem("Favorites", Icons.Default.Favorite, Color(0xFFE91E63), onNavigateToFavorites),
+        // Row 3
         QuickAccessItem("Albums", Icons.Default.Album, Color(0xFF2196F3)) {
             onNavigateToAlbums("alphabeticalByName", "Albums")
         },
-        QuickAccessItem("Playlists", Icons.AutoMirrored.Filled.QueueMusic, Color(0xFF673AB7), onNavigateToPlaylists),
-        QuickAccessItem("Genres", Icons.Default.Category, Color(0xFF4CAF50), onNavigateToGenres),
-        QuickAccessItem("Favorites", Icons.Default.Favorite, Color(0xFF009688), onNavigateToFavorites),
-        QuickAccessItem("Songs", Icons.Default.MusicNote, Color(0xFFE91E63), onNavigateToSongs),
         QuickAccessItem("Folders", Icons.Default.Folder, Color(0xFF795548), onNavigateToFolders),
+        // Row 4
+        QuickAccessItem("Songs", Icons.Default.MusicNote, Color(0xFF673AB7), onNavigateToSongs),
         QuickAccessItem("Downloads", Icons.Default.DownloadForOffline, Color(0xFF607D8B), onNavigateToDownloads),
-        QuickAccessItem("Radio", Icons.Default.Radio, Color(0xFFFF5722), onNavigateToRadio),
+        // Row 5
+        QuickAccessItem("Playlists", Icons.AutoMirrored.Filled.QueueMusic, Color(0xFF009688), onNavigateToPlaylists),
         QuickAccessItem("Recently Added", Icons.Default.AutoAwesome, Color(0xFFFFEB3B)) {
             onNavigateToAlbums("newest", "Recently Added")
         },
+        // Row 6
         QuickAccessItem("Generations", Icons.Default.CalendarMonth, Color(0xFFF44336), onNavigateToGenerations),
         QuickAccessItem("Recently Played", Icons.Default.PlayCircle, Color(0xFF00BCD4)) {
             onNavigateToAlbums("recent", "Recently Played")
         },
+        // Row 7
+        QuickAccessItem("Random Mix", Icons.Default.Shuffle, Color(0xFFFF9800), onRandomMix),
+        QuickAccessItem("Random Album", Icons.Default.Casino, Color(0xFF8BC34A), onRandomAlbum),
     )
 
     LazyVerticalGrid(
