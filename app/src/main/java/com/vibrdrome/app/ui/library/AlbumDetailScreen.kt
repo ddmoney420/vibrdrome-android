@@ -1,0 +1,241 @@
+package com.vibrdrome.app.ui.library
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Shuffle
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import com.vibrdrome.app.network.Album
+import com.vibrdrome.app.network.SubsonicClient
+import com.vibrdrome.app.network.SubsonicError
+import com.vibrdrome.app.ui.components.AlbumArtView
+import com.vibrdrome.app.ui.components.TrackRow
+import com.vibrdrome.app.util.formatDuration
+import kotlinx.coroutines.launch
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AlbumDetailScreen(
+    albumId: String,
+    client: SubsonicClient,
+) {
+    var album by remember { mutableStateOf<Album?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var isStarred by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(albumId) {
+        isLoading = true
+        error = null
+        try {
+            album = client.getAlbum(albumId)
+            isStarred = album?.starred != null
+        } catch (e: Throwable) {
+            error = SubsonicError.userMessage(e)
+        }
+        isLoading = false
+    }
+
+    Scaffold(
+        topBar = { TopAppBar(title = { Text(album?.name ?: "Album") }) },
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+        ) {
+            when {
+                isLoading && album == null -> {
+                    CircularProgressIndicator(Modifier.align(Alignment.Center))
+                }
+                error != null && album == null -> {
+                    Text(
+                        text = error ?: "",
+                        modifier = Modifier.align(Alignment.Center).padding(16.dp),
+                    )
+                }
+                album != null -> {
+                    val currentAlbum = album!!
+                    val songs = currentAlbum.song ?: emptyList()
+
+                    LazyColumn {
+                        // Album header
+                        item(key = "header") {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp, vertical = 20.dp),
+                            ) {
+                                AlbumArtView(
+                                    coverArtUrl = currentAlbum.coverArt?.let { client.coverArtURL(it, size = 480) },
+                                    size = 240.dp,
+                                    cornerRadius = 12.dp,
+                                )
+
+                                Spacer(Modifier.height(12.dp))
+
+                                Text(
+                                    text = currentAlbum.name,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center,
+                                )
+
+                                currentAlbum.artist?.let { artist ->
+                                    Text(
+                                        text = artist,
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+
+                                // Metadata row
+                                val meta = buildList {
+                                    currentAlbum.year?.let { add("$it") }
+                                    currentAlbum.genre?.let { add(it) }
+                                    currentAlbum.songCount?.let { add("$it songs") }
+                                    currentAlbum.duration?.let { add(formatDuration(it)) }
+                                }
+                                if (meta.isNotEmpty()) {
+                                    Text(
+                                        text = meta.joinToString(" · "),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    )
+                                }
+                            }
+                        }
+
+                        // Action buttons
+                        item(key = "actions") {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                            ) {
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Button(
+                                        onClick = { /* TODO: play */ },
+                                        enabled = songs.isNotEmpty(),
+                                        modifier = Modifier.weight(1f),
+                                    ) {
+                                        Icon(Icons.Default.PlayArrow, contentDescription = null)
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Play")
+                                    }
+                                    OutlinedButton(
+                                        onClick = { /* TODO: shuffle */ },
+                                        enabled = songs.isNotEmpty(),
+                                        modifier = Modifier.weight(1f),
+                                    ) {
+                                        Icon(Icons.Default.Shuffle, contentDescription = null)
+                                        Spacer(Modifier.width(4.dp))
+                                        Text("Shuffle")
+                                    }
+                                }
+
+                                Row(
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp),
+                                ) {
+                                    Spacer(Modifier.weight(1f))
+                                    IconButton(
+                                        onClick = {
+                                            val wasStarred = isStarred
+                                            isStarred = !wasStarred
+                                            scope.launch {
+                                                try {
+                                                    if (wasStarred) {
+                                                        client.unstar(albumId = albumId)
+                                                    } else {
+                                                        client.star(albumId = albumId)
+                                                    }
+                                                } catch (_: Throwable) {
+                                                    isStarred = wasStarred
+                                                }
+                                            }
+                                        },
+                                    ) {
+                                        Icon(
+                                            if (isStarred) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                            contentDescription = if (isStarred) "Unstar" else "Star",
+                                            tint = if (isStarred) Color(0xFFFF69B4) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // Songs
+                        itemsIndexed(songs, key = { _, song -> song.id }) { _, song ->
+                            TrackRow(
+                                song = song,
+                                showTrackNumber = true,
+                                modifier = Modifier.clickable { /* TODO: play song */ },
+                            )
+                            HorizontalDivider(Modifier.padding(start = 56.dp))
+                        }
+
+                        // Footer
+                        currentAlbum.duration?.let { duration ->
+                            item(key = "footer") {
+                                HorizontalDivider()
+                                Text(
+                                    text = "${currentAlbum.songCount ?: 0} songs, ${formatDuration(duration)}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(12.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
