@@ -4,7 +4,7 @@ sealed class SubsonicError : Exception() {
     data class HttpError(val code: Int) : SubsonicError()
     data class ApiError(val code: Int, override val message: String) : SubsonicError()
     data object NoServerConfigured : SubsonicError()
-    data class DecodingError(val cause: Throwable) : SubsonicError()
+    data class DecodingError(override val cause: Throwable) : SubsonicError()
     data object NetworkUnavailable : SubsonicError()
     data object InvalidURL : SubsonicError()
 

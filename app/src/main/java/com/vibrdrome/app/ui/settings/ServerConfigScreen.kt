@@ -120,15 +120,38 @@ fun ServerConfigScreen(
         Button(
             onClick = {
                 appState.saveCredentials(url, username, password)
-                if (appState.isConfigured.value) {
-                    onSignedIn()
-                } else {
+                if (!appState.isConfigured.value) {
                     testResult = "Invalid server URL. Please enter a valid URL."
+                    return@Button
+                }
+                isTesting = true
+                testResult = null
+                scope.launch {
+                    try {
+                        appState.subsonicClient.ping()
+                        onSignedIn()
+                    } catch (e: Throwable) {
+                        // First ping may fail with token auth — retry (fallback kicks in)
+                        try {
+                            appState.subsonicClient.ping()
+                            onSignedIn()
+                        } catch (e2: Throwable) {
+                            testResult = "Failed: ${SubsonicError.userMessage(e2)}"
+                        }
+                    } finally {
+                        isTesting = false
+                    }
                 }
             },
-            enabled = url.isNotBlank() && username.isNotBlank() && password.isNotBlank(),
+            enabled = url.isNotBlank() && username.isNotBlank() && password.isNotBlank() && !isTesting,
             modifier = Modifier.fillMaxWidth(),
         ) {
+            if (isTesting) {
+                CircularProgressIndicator(
+                    strokeWidth = 2.dp,
+                    modifier = Modifier.padding(end = 8.dp).size(16.dp),
+                )
+            }
             Text("Sign In")
         }
 

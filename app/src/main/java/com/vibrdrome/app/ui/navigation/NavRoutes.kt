@@ -28,3 +28,60 @@ data class AlbumsListRoute(
 
 @Serializable
 data object ServerConfigRoute
+
+@Serializable
+data object NowPlayingRoute
+
+@Serializable
+data object SearchRoute
+
+@Serializable
+data object QueueRoute
+
+@Serializable
+data object GenresRoute
+
+@Serializable
+data object SongsRoute
+
+@Serializable
+data object GenerationsRoute
+
+@Serializable
+data object FavoritesRoute
+
+@Serializable
+data object EQRoute
+
+@Serializable
+data object PlaylistsRoute
+
+@Serializable
+data class PlaylistDetailRoute(val playlistId: String)
+
+@Serializable
+data object LyricsRoute
+
+@Serializable
+data object RadioRoute
+
+@Serializable
+data object SettingsRoute
+
+@Serializable
+data object ServerManagerRoute
+
+@Serializable
+data object FolderBrowserRoute
+
+@Serializable
+data class FolderDetailRoute(val directoryId: String, val title: String? = null)
+
+@Serializable
+data object DownloadsRoute
+
+@Serializable
+data class PlaylistEditorRoute(val playlistId: String? = null)
+
+@Serializable
+data object SmartPlaylistRoute

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
@@ -46,16 +47,20 @@ import com.vibrdrome.app.network.Album
 import com.vibrdrome.app.network.SubsonicClient
 import com.vibrdrome.app.network.SubsonicError
 import com.vibrdrome.app.ui.components.AlbumArtView
-import com.vibrdrome.app.ui.components.TrackRow
+import com.vibrdrome.app.ui.components.TrackListItem
 import com.vibrdrome.app.util.formatDuration
+import com.vibrdrome.app.audio.PlaybackManager
 import kotlinx.coroutines.launch
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AlbumDetailScreen(
     albumId: String,
     client: SubsonicClient,
+    onNavigateBack: () -> Unit = {},
 ) {
+    val playbackManager: PlaybackManager = koinInject()
     var album by remember { mutableStateOf<Album?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -75,7 +80,16 @@ fun AlbumDetailScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(album?.name ?: "Album") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text(album?.name ?: "Album") },
+                navigationIcon = {
+                    IconButton(onClick = onNavigateBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                },
+            )
+        },
     ) { padding ->
         Box(
             modifier = Modifier
@@ -155,7 +169,7 @@ fun AlbumDetailScreen(
                                     modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Button(
-                                        onClick = { /* TODO: play */ },
+                                        onClick = { playbackManager.play(songs) },
                                         enabled = songs.isNotEmpty(),
                                         modifier = Modifier.weight(1f),
                                     ) {
@@ -164,7 +178,7 @@ fun AlbumDetailScreen(
                                         Text("Play")
                                     }
                                     OutlinedButton(
-                                        onClick = { /* TODO: shuffle */ },
+                                        onClick = { playbackManager.playShuffle(songs) },
                                         enabled = songs.isNotEmpty(),
                                         modifier = Modifier.weight(1f),
                                     ) {
@@ -209,11 +223,11 @@ fun AlbumDetailScreen(
                         }
 
                         // Songs
-                        itemsIndexed(songs, key = { _, song -> song.id }) { _, song ->
-                            TrackRow(
+                        itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
+                            TrackListItem(
                                 song = song,
                                 showTrackNumber = true,
-                                modifier = Modifier.clickable { /* TODO: play song */ },
+                                onClick = { playbackManager.play(songs, index) },
                             )
                             HorizontalDivider(Modifier.padding(start = 56.dp))
                         }

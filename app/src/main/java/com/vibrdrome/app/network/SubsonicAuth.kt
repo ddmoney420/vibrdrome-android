@@ -9,6 +9,10 @@ class SubsonicAuth(
     val clientName = "vibrdrome"
     val apiVersion = "1.16.1"
 
+    // Track whether token auth failed so we can fall back to password auth
+    @Volatile
+    var useTokenAuth: Boolean = false
+
     private fun generateSalt(length: Int = 12): String {
         val chars = "abcdefghijklmnopqrstuvwxyz0123456789"
         return (1..length).map { chars.random() }.joinToString("")
@@ -20,16 +24,29 @@ class SubsonicAuth(
         return bytes.joinToString("") { "%02x".format(it) }
     }
 
+    private fun hexEncode(input: String): String {
+        return input.toByteArray(Charsets.UTF_8).joinToString("") { "%02x".format(it) }
+    }
+
     fun authParameters(): Map<String, String> {
-        val salt = generateSalt()
-        val token = md5Hash(password + salt)
-        return mapOf(
+        val base = mutableMapOf(
             "u" to username,
-            "t" to token,
-            "s" to salt,
             "v" to apiVersion,
             "c" to clientName,
             "f" to "json",
         )
+
+        if (useTokenAuth) {
+            // Standard token auth: t = MD5(password + salt), s = salt
+            val salt = generateSalt()
+            val token = md5Hash(password + salt)
+            base["t"] = token
+            base["s"] = salt
+        } else {
+            // Fallback: hex-encoded password
+            base["p"] = "enc:${hexEncode(password)}"
+        }
+
+        return base
     }
 }

@@ -1,5 +1,7 @@
 package com.vibrdrome.app.util
 
+fun formatDurationMs(totalMs: Long): String = formatDuration((totalMs / 1000).toInt())
+
 fun formatDuration(totalSeconds: Int): String {
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60

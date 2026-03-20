@@ -13,9 +13,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import coil.compose.AsyncImage
+import coil.compose.SubcomposeAsyncImage
+import coil.request.ImageRequest
 
 @Composable
 fun AlbumArtView(
@@ -26,27 +28,41 @@ fun AlbumArtView(
 ) {
     val shape = RoundedCornerShape(cornerRadius)
     if (coverArtUrl != null) {
-        AsyncImage(
-            model = coverArtUrl,
+        SubcomposeAsyncImage(
+            model = ImageRequest.Builder(LocalContext.current)
+                .data(coverArtUrl)
+                .crossfade(true)
+                .build(),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = modifier
                 .size(size)
                 .clip(shape),
+            error = { ArtPlaceholder(size, shape) },
+            loading = { ArtPlaceholder(size, shape) },
         )
     } else {
-        Box(
-            contentAlignment = Alignment.Center,
-            modifier = modifier
-                .size(size)
-                .clip(shape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-        ) {
-            Icon(
-                Icons.Default.MusicNote,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        ArtPlaceholder(size, shape, modifier)
+    }
+}
+
+@Composable
+private fun ArtPlaceholder(
+    size: Dp = 50.dp,
+    shape: RoundedCornerShape = RoundedCornerShape(6.dp),
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier
+            .size(size)
+            .clip(shape)
+            .background(MaterialTheme.colorScheme.surfaceVariant),
+    ) {
+        Icon(
+            Icons.Default.MusicNote,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

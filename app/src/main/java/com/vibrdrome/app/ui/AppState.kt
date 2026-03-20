@@ -42,6 +42,18 @@ class AppState(context: Context) {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
 
+    // Global error channel for snackbar display
+    private val _snackbarMessage = MutableStateFlow<String?>(null)
+    val snackbarMessage: StateFlow<String?> = _snackbarMessage.asStateFlow()
+
+    fun showError(message: String) {
+        _snackbarMessage.value = message
+    }
+
+    fun clearSnackbar() {
+        _snackbarMessage.value = null
+    }
+
     private val _servers = MutableStateFlow<List<SavedServer>>(emptyList())
     val servers: StateFlow<List<SavedServer>> = _servers.asStateFlow()
 
@@ -55,6 +67,14 @@ class AppState(context: Context) {
         onRequiresReAuth = { _requiresReAuth.value = true },
     )
         private set
+
+    private val _themeMode = MutableStateFlow(prefs.getString("themeMode", "system") ?: "system")
+    val themeMode: StateFlow<String> = _themeMode.asStateFlow()
+
+    fun setThemeMode(mode: String) {
+        _themeMode.value = mode
+        prefs.edit().putString("themeMode", mode).apply()
+    }
 
     private val json = Json { ignoreUnknownKeys = true }
 

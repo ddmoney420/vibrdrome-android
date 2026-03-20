@@ -47,32 +47,31 @@ class SubsonicClient(
     // MARK: - URL Building
 
     private fun buildUrl(endpoint: SubsonicEndpoint): String {
-        val builder = Uri.parse(baseURL + endpoint.path).buildUpon()
-        auth.authParameters().forEach { (key, value) ->
-            builder.appendQueryParameter(key, value)
-        }
-        endpoint.queryItems.forEach { (key, value) ->
-            builder.appendQueryParameter(key, value)
-        }
-        // Handle multi-value params for specific endpoints
+        val allParams = mutableListOf<Pair<String, String>>()
+        auth.authParameters().forEach { (k, v) -> allParams.add(k to v) }
+        endpoint.queryItems.forEach { (k, v) -> allParams.add(k to v) }
         when (endpoint) {
-            is SubsonicEndpoint.CreatePlaylist ->
-                endpoint.songIdParams.forEach { (k, v) -> builder.appendQueryParameter(k, v) }
-            is SubsonicEndpoint.UpdatePlaylist ->
-                endpoint.extraParams.forEach { (k, v) -> builder.appendQueryParameter(k, v) }
-            is SubsonicEndpoint.SavePlayQueue ->
-                endpoint.idParams.forEach { (k, v) -> builder.appendQueryParameter(k, v) }
+            is SubsonicEndpoint.CreatePlaylist -> allParams.addAll(endpoint.songIdParams)
+            is SubsonicEndpoint.UpdatePlaylist -> allParams.addAll(endpoint.extraParams)
+            is SubsonicEndpoint.SavePlayQueue -> allParams.addAll(endpoint.idParams)
             else -> {}
         }
-        return builder.build().toString()
+        allParams.forEach { (k, v) -> Log.d(TAG, "  param: $k = '$v' (len=${v.length})") }
+        val query = allParams.joinToString("&") { (k, v) ->
+            "${enc(k)}=${enc(v)}"
+        }
+        Log.d(TAG, "Built URL query: $query")
+        return "$baseURL${endpoint.path}?$query"
     }
+
+    private fun enc(s: String): String = java.net.URLEncoder.encode(s, "UTF-8")
 
     fun streamURL(id: String, maxBitRate: Int? = null, format: String? = null): String {
         return buildUrl(SubsonicEndpoint.Stream(id, maxBitRate, format))
     }
 
     fun coverArtURL(id: String, size: Int? = null): String {
-        return buildUrl(SubsonicEndpoint.GetCoverArt(id, size))
+        return buildUrl(SubsonicEndpoint.GetCoverArt(id, imageSize = size))
     }
 
     fun downloadURL(id: String): String {
@@ -115,18 +114,22 @@ class SubsonicClient(
 
     private suspend fun performRequest(endpoint: SubsonicEndpoint): SubsonicResponseBody {
         val url = buildUrl(endpoint)
+        Log.d(TAG, "Request: $url")
         val response = httpClient.get(url)
 
         if (!response.status.isSuccess()) {
             val statusCode = response.status.value
+            Log.e(TAG, "HTTP error $statusCode for ${endpoint.path}")
             if (statusCode == 401) {
                 onRequiresReAuth()
             }
             throw SubsonicError.HttpError(statusCode)
         }
 
-        val rawBytes = response.readRawBytes()
-        val body = decodeResponse(rawBytes)
+        val bodyText = response.bodyAsText()
+        val rawBytes = bodyText.toByteArray(Charsets.UTF_8)
+        Log.d(TAG, "Response for ${endpoint.path}: ${bodyText.take(500)}")
+        val body = decodeResponse(rawBytes, endpoint.path)
 
         // Cache the raw response data on success
         val key = responseCache.cacheKey(endpoint)
@@ -135,7 +138,7 @@ class SubsonicClient(
         return body
     }
 
-    private fun decodeResponse(data: ByteArray): SubsonicResponseBody {
+    private fun decodeResponse(data: ByteArray, path: String = ""): SubsonicResponseBody {
         val text = data.toString(Charsets.UTF_8)
         val decoded: SubsonicResponse
         try {
@@ -149,11 +152,19 @@ class SubsonicClient(
         if (body.status != "ok") {
             val error = body.error
             if (error != null) {
+                Log.e(TAG, "API error ${error.code}: ${error.message} for $path")
                 if (error.code == 40) {
+                    if (auth.useTokenAuth) {
+                        // Token auth failed — retry with password auth
+                        Log.i(TAG, "Token auth failed, falling back to password auth")
+                        auth.useTokenAuth = false
+                        throw SubsonicError.ApiError(error.code, error.message)
+                    }
                     onRequiresReAuth()
                 }
                 throw SubsonicError.ApiError(error.code, error.message)
             }
+            Log.e(TAG, "Non-ok status: ${body.status} for $path")
             throw SubsonicError.ApiError(0, "Server returned status: ${body.status}")
         }
 
@@ -235,12 +246,12 @@ class SubsonicClient(
         fromYear: Int? = null,
         toYear: Int? = null,
     ): List<Album> {
-        val body = request(SubsonicEndpoint.GetAlbumList2(type, size, offset, fromYear, toYear, genre))
+        val body = request(SubsonicEndpoint.GetAlbumList2(type, pageSize = size, offset = offset, fromYear = fromYear, toYear = toYear, genre = genre))
         return body.albumList2?.album ?: emptyList()
     }
 
     suspend fun getRandomSongs(size: Int = 20, genre: String? = null): List<Song> {
-        val body = request(SubsonicEndpoint.GetRandomSongs(size, genre))
+        val body = request(SubsonicEndpoint.GetRandomSongs(pageSize = size, genre = genre))
         return body.randomSongs?.song ?: emptyList()
     }
 

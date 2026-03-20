@@ -66,7 +66,7 @@ sealed class SubsonicEndpoint {
 
     data class GetAlbumList2(
         val type: AlbumListType,
-        val size: Int = 20,
+        val pageSize: Int = 20,
         val offset: Int = 0,
         val fromYear: Int? = null,
         val toYear: Int? = null,
@@ -75,7 +75,7 @@ sealed class SubsonicEndpoint {
         override val path = "/rest/getAlbumList2"
         override val queryItems = buildMap {
             put("type", type.value)
-            put("size", size.toString())
+            put("size", pageSize.toString())
             if (offset > 0) put("offset", offset.toString())
             fromYear?.let { put("fromYear", it.toString()) }
             toYear?.let { put("toYear", it.toString()) }
@@ -84,14 +84,14 @@ sealed class SubsonicEndpoint {
     }
 
     data class GetRandomSongs(
-        val size: Int = 20,
+        val pageSize: Int = 20,
         val genre: String? = null,
         val fromYear: Int? = null,
         val toYear: Int? = null,
     ) : SubsonicEndpoint() {
         override val path = "/rest/getRandomSongs"
         override val queryItems = buildMap {
-            put("size", size.toString())
+            put("size", pageSize.toString())
             genre?.let { put("genre", it) }
             fromYear?.let { put("fromYear", it.toString()) }
             toYear?.let { put("toYear", it.toString()) }
@@ -218,11 +218,11 @@ sealed class SubsonicEndpoint {
         override val queryItems = mapOf("id" to id)
     }
 
-    data class GetCoverArt(val id: String, val size: Int? = null) : SubsonicEndpoint() {
+    data class GetCoverArt(val id: String, val imageSize: Int? = null) : SubsonicEndpoint() {
         override val path = "/rest/getCoverArt"
         override val queryItems = buildMap {
             put("id", id)
-            size?.let { put("size", it.toString()) }
+            imageSize?.let { put("size", it.toString()) }
         }
     }
 

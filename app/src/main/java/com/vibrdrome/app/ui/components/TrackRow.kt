@@ -23,8 +23,8 @@ import com.vibrdrome.app.util.formatDuration
 @Composable
 fun TrackRow(
     song: Song,
-    showTrackNumber: Boolean = true,
     modifier: Modifier = Modifier,
+    showTrackNumber: Boolean = true,
 ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,

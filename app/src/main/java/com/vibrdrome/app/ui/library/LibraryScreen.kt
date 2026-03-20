@@ -21,14 +21,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Album
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.DownloadForOffline
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.DownloadForOffline
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.PlayCircle
-import androidx.compose.material.icons.filled.Sparkle
+import androidx.compose.material.icons.filled.Radio
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -63,6 +71,16 @@ fun LibraryScreen(
     onNavigateToArtists: () -> Unit,
     onNavigateToAlbums: (listType: String, title: String) -> Unit,
     onNavigateToAlbumDetail: (albumId: String) -> Unit,
+    onNavigateToSearch: () -> Unit = {},
+    onNavigateToSongs: () -> Unit = {},
+    onNavigateToGenerations: () -> Unit = {},
+    onNavigateToGenres: () -> Unit = {},
+    onNavigateToFavorites: () -> Unit = {},
+    onNavigateToPlaylists: () -> Unit = {},
+    onNavigateToRadio: () -> Unit = {},
+    onNavigateToFolders: () -> Unit = {},
+    onNavigateToSettings: () -> Unit = {},
+    onNavigateToDownloads: () -> Unit = {},
 ) {
     var recentAlbums by remember { mutableStateOf<List<Album>>(emptyList()) }
     var frequentAlbums by remember { mutableStateOf<List<Album>>(emptyList()) }
@@ -72,7 +90,7 @@ fun LibraryScreen(
         // Load cached first, then refresh
         try {
             val cached = client.cachedResponse(
-                com.vibrdrome.app.network.SubsonicEndpoint.GetAlbumList2(AlbumListType.NEWEST, size = 10),
+                com.vibrdrome.app.network.SubsonicEndpoint.GetAlbumList2(AlbumListType.NEWEST, pageSize = 10),
                 ttlMs = 300_000,
             )
             if (cached != null) recentAlbums = cached.albumList2?.album ?: emptyList()
@@ -89,6 +107,14 @@ fun LibraryScreen(
         topBar = {
             LargeTopAppBar(
                 title = { Text("Library") },
+                actions = {
+                    IconButton(onClick = onNavigateToSearch) {
+                        Icon(Icons.Default.Search, contentDescription = "Search")
+                    }
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                },
                 scrollBehavior = scrollBehavior,
             )
         },
@@ -103,6 +129,14 @@ fun LibraryScreen(
             QuickAccessGrid(
                 onNavigateToArtists = onNavigateToArtists,
                 onNavigateToAlbums = onNavigateToAlbums,
+                onNavigateToSongs = onNavigateToSongs,
+                onNavigateToGenerations = onNavigateToGenerations,
+                onNavigateToGenres = onNavigateToGenres,
+                onNavigateToFavorites = onNavigateToFavorites,
+                onNavigateToPlaylists = onNavigateToPlaylists,
+                onNavigateToRadio = onNavigateToRadio,
+                onNavigateToFolders = onNavigateToFolders,
+                onNavigateToDownloads = onNavigateToDownloads,
             )
 
             Spacer(Modifier.height(20.dp))
@@ -149,19 +183,31 @@ fun LibraryScreen(
 private fun QuickAccessGrid(
     onNavigateToArtists: () -> Unit,
     onNavigateToAlbums: (listType: String, title: String) -> Unit,
+    onNavigateToSongs: () -> Unit,
+    onNavigateToGenerations: () -> Unit,
+    onNavigateToGenres: () -> Unit,
+    onNavigateToFavorites: () -> Unit,
+    onNavigateToPlaylists: () -> Unit,
+    onNavigateToRadio: () -> Unit,
+    onNavigateToFolders: () -> Unit,
+    onNavigateToDownloads: () -> Unit,
 ) {
     val pills = listOf(
         QuickAccessItem("Artists", Icons.Default.Person, Color(0xFF9C27B0), onNavigateToArtists),
         QuickAccessItem("Albums", Icons.Default.Album, Color(0xFF2196F3)) {
             onNavigateToAlbums("alphabeticalByName", "Albums")
         },
-        QuickAccessItem("Folders", Icons.Default.Folder, Color(0xFF4CAF50)) { /* TODO */ },
-        QuickAccessItem("Downloads", Icons.Default.DownloadForOffline, Color(0xFF009688)) { /* TODO */ },
-        QuickAccessItem("Songs", Icons.Default.MusicNote, Color(0xFFE91E63)) { /* TODO */ },
-        QuickAccessItem("Recently Added", Icons.Default.Sparkle, Color(0xFFFFEB3B)) {
+        QuickAccessItem("Playlists", Icons.AutoMirrored.Filled.QueueMusic, Color(0xFF673AB7), onNavigateToPlaylists),
+        QuickAccessItem("Genres", Icons.Default.Category, Color(0xFF4CAF50), onNavigateToGenres),
+        QuickAccessItem("Favorites", Icons.Default.Favorite, Color(0xFF009688), onNavigateToFavorites),
+        QuickAccessItem("Songs", Icons.Default.MusicNote, Color(0xFFE91E63), onNavigateToSongs),
+        QuickAccessItem("Folders", Icons.Default.Folder, Color(0xFF795548), onNavigateToFolders),
+        QuickAccessItem("Downloads", Icons.Default.DownloadForOffline, Color(0xFF607D8B), onNavigateToDownloads),
+        QuickAccessItem("Radio", Icons.Default.Radio, Color(0xFFFF5722), onNavigateToRadio),
+        QuickAccessItem("Recently Added", Icons.Default.AutoAwesome, Color(0xFFFFEB3B)) {
             onNavigateToAlbums("newest", "Recently Added")
         },
-        QuickAccessItem("Generations", Icons.Default.CalendarMonth, Color(0xFFF44336)) { /* TODO */ },
+        QuickAccessItem("Generations", Icons.Default.CalendarMonth, Color(0xFFF44336), onNavigateToGenerations),
         QuickAccessItem("Recently Played", Icons.Default.PlayCircle, Color(0xFF00BCD4)) {
             onNavigateToAlbums("recent", "Recently Played")
         },
@@ -172,7 +218,7 @@ private fun QuickAccessGrid(
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.height(((pills.size / 2) * 50).dp),
+        modifier = Modifier.height((((pills.size + 1) / 2) * 50).dp),
         userScrollEnabled = false,
     ) {
         items(pills.size) { index ->
