@@ -11,10 +11,13 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DefaultDataSource
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.vibrdrome.app.network.Song
 import com.vibrdrome.app.network.SubsonicClient
 import com.vibrdrome.app.persistence.DownloadDao
@@ -499,7 +502,18 @@ class PlaybackManager(
                     .build()
             }
         }
-        return ExoPlayer.Builder(appContext, renderersFactory).build()
+        // HTTP data source with User-Agent for radio stream compatibility
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+            .setUserAgent("Vibrdrome/1.0 (Android)")
+            .setConnectTimeoutMs(15_000)
+            .setReadTimeoutMs(15_000)
+            .setAllowCrossProtocolRedirects(true)
+        val dataSourceFactory = DefaultDataSource.Factory(appContext, httpDataSourceFactory)
+        val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
+
+        return ExoPlayer.Builder(appContext, renderersFactory)
+            .setMediaSourceFactory(mediaSourceFactory)
+            .build()
     }
 
     // MARK: - Persistence
