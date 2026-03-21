@@ -42,6 +42,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 import com.vibrdrome.app.audio.PlaybackManager
 import com.vibrdrome.app.visualizer.ProjectMBridge
 import com.vibrdrome.app.visualizer.ProjectMRenderer
@@ -274,6 +276,7 @@ private fun VisualizerOverlay(
     }
 }
 
+@OptIn(UnstableApi::class)
 private fun setupVisualizer(
     playbackManager: PlaybackManager,
     onData: (waveform: ByteArray, fft: ByteArray, bass: Float, mid: Float, treble: Float, energy: Float) -> Unit,
