@@ -13,6 +13,9 @@ class SubsonicAuth(
     @Volatile
     var useTokenAuth: Boolean = false
 
+    @Volatile
+    var triedBothModes: Boolean = false
+
     private fun generateSalt(length: Int = 12): String {
         val chars = "abcdefghijklmnopqrstuvwxyz0123456789"
         return (1..length).map { chars.random() }.joinToString("")

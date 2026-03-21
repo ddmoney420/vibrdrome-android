@@ -83,6 +83,7 @@ class SubsonicClient(
         if (error is java.net.UnknownHostException) return true
         if (error is java.net.ConnectException) return true
         if (error is SubsonicError.HttpError && error.code >= 500) return true
+        if (error is SubsonicError.ApiError && error.code == 40 && auth.triedBothModes) return true
         return false
     }
 
@@ -149,12 +150,14 @@ class SubsonicClient(
             if (error != null) {
                 Log.e(TAG, "API error ${error.code}: ${error.message} for $path")
                 if (error.code == 40) {
-                    if (auth.useTokenAuth) {
-                        // Token auth failed — retry with password auth
-                        Log.i(TAG, "Token auth failed, falling back to password auth")
-                        auth.useTokenAuth = false
+                    if (!auth.triedBothModes) {
+                        // Try the other auth mode
+                        Log.i(TAG, "Auth failed, switching mode (token=${auth.useTokenAuth})")
+                        auth.useTokenAuth = !auth.useTokenAuth
+                        auth.triedBothModes = true
                         throw SubsonicError.ApiError(error.code, error.message)
                     }
+                    auth.triedBothModes = false
                     onRequiresReAuth()
                 }
                 throw SubsonicError.ApiError(error.code, error.message)
