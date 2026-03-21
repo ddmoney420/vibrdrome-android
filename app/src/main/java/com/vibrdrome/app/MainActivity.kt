@@ -2,6 +2,7 @@ package com.vibrdrome.app
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Column
@@ -175,6 +176,10 @@ private fun VibrdromeNavHost(appState: AppState) {
 
             // Library
             composable<LibraryRoute> {
+                val context = androidx.compose.ui.platform.LocalContext.current
+                BackHandler(true) {
+                    (context as? ComponentActivity)?.moveTaskToBack(true)
+                }
                 LibraryScreen(
                     client = appState.subsonicClient,
                     onNavigateToArtists = { navController.navigate(ArtistsRoute) },
