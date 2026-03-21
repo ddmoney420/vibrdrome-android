@@ -169,20 +169,24 @@ object ShaderPresets {
             vec2 p = uv * 2.0 - 1.0;
             p.x *= uResolution.x / uResolution.y;
 
-            float t = uTime * 0.1;
-            float n1 = fbm(p * 3.0 + t + uBass);
-            float n2 = fbm(p * 2.0 - t * 0.7 + n1 + uMid);
-            float n3 = fbm(p * 4.0 + t * 0.3 + n2);
+            float t = uTime * 0.15;
+            float n1 = fbm(p * 2.0 + t + uBass * 2.0);
+            float n2 = fbm(p * 3.0 - t * 0.7 + n1 * 1.5 + uMid);
+            float n3 = fbm(p * 1.5 + t * 0.5 + n2 * 1.5);
 
             vec3 col = vec3(0.0);
-            col += vec3(0.4, 0.1, 0.6) * n1;
-            col += vec3(0.1, 0.3, 0.7) * n2;
-            col += vec3(0.6, 0.2, 0.4) * n3 * uTreble;
+            col += vec3(0.7, 0.2, 1.0) * n1 * 1.5;
+            col += vec3(0.2, 0.5, 1.0) * n2 * 1.3;
+            col += vec3(1.0, 0.3, 0.6) * n3 * uTreble * 1.5;
+            col += vec3(0.3, 0.8, 0.5) * pow(n1 * n2, 0.5) * uBass * 2.0;
 
-            float stars = step(0.98, hash(floor(uv * 200.0)));
-            col += stars * (0.5 + uTreble * 0.5);
+            // Brighter stars
+            float stars = step(0.97, hash(floor(uv * 300.0)));
+            float twinkle = sin(uTime * 3.0 + hash(floor(uv * 300.0)) * 50.0) * 0.5 + 0.5;
+            col += stars * (0.8 + uTreble) * twinkle;
 
-            col *= 0.6 + uEnergy * 0.6;
+            col *= 0.8 + uEnergy * 0.8;
+            col = pow(col, vec3(0.85));
             gl_FragColor = vec4(col, 1.0);
         }
     """)

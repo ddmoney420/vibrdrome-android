@@ -275,7 +275,7 @@ private fun QuickAccessGrid(
         contentPadding = PaddingValues(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier.height((((pills.size + 1) / 2) * 50).dp),
+        modifier = Modifier.height((((pills.size + 1) / 2) * 52).dp),
         userScrollEnabled = false,
     ) {
         items(pills.size) { index ->

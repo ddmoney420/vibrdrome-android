@@ -33,7 +33,7 @@ class BiquadAudioProcessor(
         return inputAudioFormat
     }
 
-    override fun isActive(): Boolean = coefficientsStore.isEnabled
+    override fun isActive(): Boolean = true
 
     override fun queueInput(inputBuffer: ByteBuffer) {
         val size = inputBuffer.remaining()

@@ -2,6 +2,7 @@ package com.vibrdrome.app.ui.player
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -47,7 +48,7 @@ fun MiniPlayer(
         shadowElevation = 8.dp,
         modifier = modifier.fillMaxWidth(),
     ) {
-        Column {
+        Column(Modifier.navigationBarsPadding()) {
             LinearProgressIndicator(
                 progress = { if (durationMs > 0) positionMs.toFloat() / durationMs else 0f },
                 modifier = Modifier
