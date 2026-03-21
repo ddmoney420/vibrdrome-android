@@ -12,3 +12,5 @@ local.properties
 /app/release
 *.apk
 *.aab
+*.jks
+vibrdrome-release.jks
