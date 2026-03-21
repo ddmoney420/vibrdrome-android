@@ -45,7 +45,7 @@ class ProjectMRenderer(
     }
 
     override fun onDrawFrame(gl: GL10?) {
-        if (handle == 0L) return
+        if (handle == 0L || released) return
 
         val data = waveformData
         if (data.isNotEmpty()) {
@@ -78,9 +78,13 @@ class ProjectMRenderer(
         bridge.nativeLoadPreset(handle, presetFiles[currentPresetIndex], smooth)
     }
 
+    @Volatile
+    private var released = false
+
     fun release() {
+        released = true
         if (handle != 0L) {
-            bridge.nativeDestroy(handle)
+            try { bridge.nativeDestroy(handle) } catch (_: Exception) {}
             handle = 0
         }
     }

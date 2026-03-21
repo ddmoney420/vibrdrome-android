@@ -112,7 +112,7 @@ private fun CustomShaderVisualizer(
     var presetIndex by remember { mutableIntStateOf(0) }
     val renderer = remember { VisualizerRenderer() }
 
-    DisposableEffect(isPlaying) {
+    DisposableEffect(Unit) {
         val viz = setupVisualizer(playbackManager) { waveform, _, bass, mid, treble, energy ->
             renderer.waveformData = waveform
             renderer.energy = energy
@@ -121,8 +121,8 @@ private fun CustomShaderVisualizer(
             renderer.treble = treble
         }
         onDispose {
-            viz?.enabled = false
-            viz?.release()
+            try { viz?.enabled = false } catch (_: Exception) {}
+            try { viz?.release() } catch (_: Exception) {}
         }
     }
 
@@ -182,13 +182,13 @@ private fun MilkdropVisualizer(
     val renderer = remember { ProjectMRenderer(bridge, presetPath) }
     var presetName by remember { mutableStateOf("Milkdrop") }
 
-    DisposableEffect(isPlaying) {
+    DisposableEffect(Unit) {
         val viz = setupVisualizer(playbackManager) { waveform, _, _, _, _, _ ->
             renderer.waveformData = waveform
         }
         onDispose {
-            viz?.enabled = false
-            viz?.release()
+            try { viz?.enabled = false } catch (_: Exception) {}
+            try { viz?.release() } catch (_: Exception) {}
             renderer.release()
         }
     }
