@@ -355,15 +355,23 @@ class PlaybackManager(
     fun playRadioStream(name: String, streamUrl: String) {
         ensureServiceStarted()
         _queue.value = emptyList()
-        _currentSong.value = null
+        // Create a dummy Song so MiniPlayer shows
+        _currentSong.value = Song(
+            id = "radio_${streamUrl.hashCode()}",
+            title = name,
+            artist = "Radio",
+        )
         _currentCoverArtUrl.value = null
         _currentIndex.value = -1
+        _durationMs.value = 0
+        _positionMs.value = 0
         val mediaItem = MediaItem.Builder()
             .setUri(streamUrl)
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(name)
                     .setArtist("Radio")
+                    .setIsPlayable(true)
                     .build()
             )
             .build()
@@ -428,10 +436,13 @@ class PlaybackManager(
         val index = player.currentMediaItemIndex
         _currentIndex.value = index
         val song = _queue.value.getOrNull(index)
-        _currentSong.value = song
-        _currentCoverArtUrl.value = song?.coverArt?.let {
-            appState.subsonicClient.coverArtURL(it, size = 480)
+        if (song != null) {
+            _currentSong.value = song
+            _currentCoverArtUrl.value = song.coverArt?.let {
+                appState.subsonicClient.coverArtURL(it, size = 480)
+            }
         }
+        // If queue is empty (radio mode), keep the current dummy song
     }
 
     private fun startPositionTracking() {
