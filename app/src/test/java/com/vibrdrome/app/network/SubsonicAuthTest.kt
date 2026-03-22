@@ -9,7 +9,7 @@ import java.security.MessageDigest
 class SubsonicAuthTest {
 
     @Test
-    fun `password auth parameters contain all required fields`() {
+    fun `default auth parameters contain all required fields`() {
         val auth = SubsonicAuth("testuser", "testpass")
         val params = auth.authParameters()
 
@@ -17,12 +17,13 @@ class SubsonicAuthTest {
         assertEquals("1.16.1", params["v"])
         assertEquals("vibrdrome", params["c"])
         assertEquals("json", params["f"])
-        assertTrue(params.containsKey("p"))
+        assertTrue(params.containsKey("t") || params.containsKey("p"))
     }
 
     @Test
-    fun `password is hex encoded`() {
+    fun `password auth is hex encoded`() {
         val auth = SubsonicAuth("user", "mypassword")
+        auth.useTokenAuth = false
         val params = auth.authParameters()
 
         val p = params["p"]!!
@@ -73,12 +74,12 @@ class SubsonicAuthTest {
     }
 
     @Test
-    fun `defaults to password auth`() {
+    fun `defaults to token auth`() {
         val auth = SubsonicAuth("user", "pass")
-        assertEquals(false, auth.useTokenAuth)
+        assertEquals(true, auth.useTokenAuth)
         val params = auth.authParameters()
-        assertTrue(params.containsKey("p"))
-        assertTrue(!params.containsKey("t"))
+        assertTrue(params.containsKey("t"))
+        assertTrue(params.containsKey("s"))
     }
 
     private fun md5(input: String): String {
