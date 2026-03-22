@@ -377,6 +377,8 @@ class PlaybackManager(
                     .setIsPlayable(true)
                     .build()
             )
+            // Help ExoPlayer detect stream type for playlist URLs
+            .setMimeType(guessRadioMimeType(streamUrl))
             .build()
         player.setMediaItem(mediaItem)
         player.prepare()
@@ -474,6 +476,19 @@ class PlaybackManager(
         _positionMs.value = player.currentPosition.coerceAtLeast(0)
     }
 
+    private fun guessRadioMimeType(url: String): String? {
+        val lower = url.lowercase()
+        return when {
+            lower.endsWith(".m3u") || lower.endsWith(".m3u8") -> "application/x-mpegURL"
+            lower.endsWith(".pls") -> "audio/x-scpls"
+            lower.endsWith(".aac") -> "audio/aac"
+            lower.endsWith(".ogg") || lower.endsWith(".oga") -> "audio/ogg"
+            lower.endsWith(".flac") -> "audio/flac"
+            lower.endsWith(".opus") -> "audio/opus"
+            else -> null // Let ExoPlayer auto-detect
+        }
+    }
+
     private fun ensureServiceStarted() {
         if (!serviceStarted) {
             appContext.startService(Intent(appContext, PlaybackService::class.java))
@@ -505,9 +520,10 @@ class PlaybackManager(
         // HTTP data source with User-Agent for radio stream compatibility
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setUserAgent("Vibrdrome/1.0 (Android)")
-            .setConnectTimeoutMs(15_000)
-            .setReadTimeoutMs(15_000)
+            .setConnectTimeoutMs(30_000)
+            .setReadTimeoutMs(30_000)
             .setAllowCrossProtocolRedirects(true)
+            .setDefaultRequestProperties(mapOf("Icy-MetaData" to "1"))
         val dataSourceFactory = DefaultDataSource.Factory(appContext, httpDataSourceFactory)
         val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
 

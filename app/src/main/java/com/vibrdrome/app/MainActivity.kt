@@ -98,6 +98,13 @@ private fun VibrdromeNavHost(appState: AppState) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val showMiniPlayer = currentSong != null &&
         navBackStackEntry?.destination?.route?.contains("NowPlayingRoute") != true
+
+    // Prevent back press from going past the home screen to a blank state
+    val activity = androidx.compose.ui.platform.LocalContext.current as? ComponentActivity
+    BackHandler(navController.previousBackStackEntry == null) {
+        activity?.moveTaskToBack(true)
+    }
+
     val snackbarHostState = remember { SnackbarHostState() }
     val snackbarMessage by appState.snackbarMessage.collectAsState()
     val snackbarScope = rememberCoroutineScope()
@@ -176,10 +183,6 @@ private fun VibrdromeNavHost(appState: AppState) {
 
             // Library
             composable<LibraryRoute> {
-                val context = androidx.compose.ui.platform.LocalContext.current
-                BackHandler(true) {
-                    (context as? ComponentActivity)?.moveTaskToBack(true)
-                }
                 LibraryScreen(
                     client = appState.subsonicClient,
                     onNavigateToArtists = { navController.navigate(ArtistsRoute) },

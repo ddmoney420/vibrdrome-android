@@ -11,7 +11,7 @@ class SubsonicAuth(
 
     // Track whether token auth failed so we can fall back to password auth
     @Volatile
-    var useTokenAuth: Boolean = false
+    var useTokenAuth: Boolean = true
 
     @Volatile
     var triedBothModes: Boolean = false
