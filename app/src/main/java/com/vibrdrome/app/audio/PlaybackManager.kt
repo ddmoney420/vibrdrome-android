@@ -19,6 +19,8 @@ import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import com.vibrdrome.app.network.Song
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
 import com.vibrdrome.app.network.SubsonicClient
 import com.vibrdrome.app.persistence.DownloadDao
 import com.vibrdrome.app.persistence.PlaybackStateDao
@@ -357,6 +359,14 @@ class PlaybackManager(
 
     fun playRadioStream(name: String, streamUrl: String) {
         ensureServiceStarted()
+        // Resolve PLS/M3U playlists to direct stream URLs
+        scope.launch {
+            val resolvedUrl = resolveStreamUrl(streamUrl)
+            playRadioStreamDirect(name, resolvedUrl)
+        }
+    }
+
+    private fun playRadioStreamDirect(name: String, streamUrl: String) {
         _queue.value = emptyList()
         // Create a dummy Song so MiniPlayer shows
         _currentSong.value = Song(
@@ -474,6 +484,34 @@ class PlaybackManager(
     private fun stopPositionTracking() {
         positionJob?.cancel()
         _positionMs.value = player.currentPosition.coerceAtLeast(0)
+    }
+
+    private suspend fun resolveStreamUrl(url: String): String {
+        val lower = url.lowercase()
+        if (!lower.endsWith(".pls") && !lower.endsWith(".m3u") && !lower.endsWith(".m3u8")) {
+            return url
+        }
+        return try {
+            val client = io.ktor.client.HttpClient(io.ktor.client.engine.android.Android)
+            val response = client.get(url)
+            val body = response.bodyAsText()
+            if (lower.endsWith(".pls")) {
+                // Parse PLS: look for File1=URL
+                body.lines()
+                    .firstOrNull { it.startsWith("File", ignoreCase = true) && it.contains("=") }
+                    ?.substringAfter("=")
+                    ?.trim()
+                    ?: url
+            } else {
+                // Parse M3U: first non-comment, non-empty line
+                body.lines()
+                    .firstOrNull { it.isNotBlank() && !it.startsWith("#") }
+                    ?.trim()
+                    ?: url
+            }
+        } catch (_: Exception) {
+            url
+        }
     }
 
     private fun guessRadioMimeType(url: String): String? {
