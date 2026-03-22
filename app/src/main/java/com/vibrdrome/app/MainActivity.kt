@@ -96,6 +96,13 @@ private fun VibrdromeNavHost(appState: AppState) {
     val requiresReAuth by appState.requiresReAuth.collectAsState()
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
+    // Safe back navigation — prevents double-tap from going past home screen
+    val safeBack: () -> Unit = {
+        if (navController.previousBackStackEntry != null) {
+            navController.popBackStack()
+        }
+    }
+
     val showMiniPlayer = currentSong != null &&
         navBackStackEntry?.destination?.route?.contains("NowPlayingRoute") != true
 
@@ -205,7 +212,7 @@ private fun VibrdromeNavHost(appState: AppState) {
                 ArtistsScreen(
                     client = appState.subsonicClient,
                     onArtistClick = { navController.navigate(ArtistDetailRoute(it)) },
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = safeBack,
                 )
             }
             composable<ArtistDetailRoute> { e ->
@@ -213,14 +220,14 @@ private fun VibrdromeNavHost(appState: AppState) {
                     artistId = e.toRoute<ArtistDetailRoute>().artistId,
                     client = appState.subsonicClient,
                     onAlbumClick = { navController.navigate(AlbumDetailRoute(it)) },
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = safeBack,
                 )
             }
             composable<AlbumDetailRoute> { e ->
                 AlbumDetailScreen(
                     albumId = e.toRoute<AlbumDetailRoute>().albumId,
                     client = appState.subsonicClient,
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = safeBack,
                     onNavigateToArtist = { navController.navigate(ArtistDetailRoute(it)) },
                 )
             }
@@ -234,20 +241,20 @@ private fun VibrdromeNavHost(appState: AppState) {
                     toYear = r.toYear,
                     client = appState.subsonicClient,
                     onAlbumClick = { navController.navigate(AlbumDetailRoute(it)) },
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = safeBack,
                 )
             }
             composable<GenresRoute> {
                 GenresScreen(
                     client = appState.subsonicClient,
                     onGenreClick = { g -> navController.navigate(AlbumsListRoute("byGenre", g, genre = g)) },
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = safeBack,
                 )
             }
             composable<SongsRoute> {
                 SongsScreen(
                     client = appState.subsonicClient,
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = safeBack,
                     onGoToAlbum = { navController.navigate(AlbumDetailRoute(it)) },
                     onGoToArtist = { navController.navigate(ArtistDetailRoute(it)) },
                 )
@@ -255,7 +262,7 @@ private fun VibrdromeNavHost(appState: AppState) {
             composable<GenerationsRoute> {
                 GenerationsScreen(
                     onDecadeClick = { f, t, n -> navController.navigate(AlbumsListRoute("byYear", n, fromYear = f, toYear = t)) },
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = safeBack,
                 )
             }
             composable<FavoritesRoute> {
@@ -263,14 +270,14 @@ private fun VibrdromeNavHost(appState: AppState) {
                     client = appState.subsonicClient,
                     onArtistClick = { navController.navigate(ArtistDetailRoute(it)) },
                     onAlbumClick = { navController.navigate(AlbumDetailRoute(it)) },
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = safeBack,
                 )
             }
             composable<FolderBrowserRoute> {
                 FolderBrowserScreen(
                     client = appState.subsonicClient,
                     onFolderClick = { id, name -> navController.navigate(FolderDetailRoute(id, name)) },
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = safeBack,
                 )
             }
             composable<FolderDetailRoute> { e ->
@@ -280,11 +287,11 @@ private fun VibrdromeNavHost(appState: AppState) {
                     title = r.title,
                     client = appState.subsonicClient,
                     onFolderClick = { id, name -> navController.navigate(FolderDetailRoute(id, name)) },
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = safeBack,
                 )
             }
             composable<DownloadsRoute> {
-                DownloadsScreen(onNavigateBack = { navController.popBackStack() })
+                DownloadsScreen(onNavigateBack = safeBack)
             }
 
             // Playlists
@@ -292,7 +299,7 @@ private fun VibrdromeNavHost(appState: AppState) {
                 PlaylistsScreen(
                     client = appState.subsonicClient,
                     onPlaylistClick = { navController.navigate(PlaylistDetailRoute(it)) },
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = safeBack,
                 )
             }
             composable<PlaylistDetailRoute> { e ->
@@ -300,54 +307,54 @@ private fun VibrdromeNavHost(appState: AppState) {
                     playlistId = e.toRoute<PlaylistDetailRoute>().playlistId,
                     client = appState.subsonicClient,
                     onEditPlaylist = { navController.navigate(PlaylistEditorRoute(it)) },
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = safeBack,
                 )
             }
             composable<PlaylistEditorRoute> { e ->
                 PlaylistEditorScreen(
                     e.toRoute<PlaylistEditorRoute>().playlistId,
                     appState.subsonicClient,
-                ) { navController.popBackStack() }
+                ) { safeBack() }
             }
             composable<SmartPlaylistRoute> {
-                SmartPlaylistScreen(appState.subsonicClient) { navController.popBackStack() }
+                SmartPlaylistScreen(appState.subsonicClient) { safeBack() }
             }
 
             // Radio
             composable<RadioRoute> {
                 RadioScreen(
                     client = appState.subsonicClient,
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = safeBack,
                     onSearchStations = { navController.navigate(StationSearchRoute) },
                     onAddStation = { navController.navigate(AddStationRoute) },
                 )
             }
             composable<StationSearchRoute> {
-                StationSearchScreen(onNavigateBack = { navController.popBackStack() })
+                StationSearchScreen(onNavigateBack = safeBack)
             }
             composable<AddStationRoute> {
                 AddStationScreen(
                     client = appState.subsonicClient,
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = safeBack,
                 )
             }
 
             // Settings
             composable<SettingsRoute> {
-                SettingsScreen(appState, { navController.popBackStack() },
+                SettingsScreen(appState, safeBack,
                     { navController.navigate(ServerManagerRoute) },
                     { navController.navigate(EQRoute) },
                     { navController.navigate(ServerConfigRoute) { popUpTo(0) { inclusive = true } } })
             }
             composable<ServerManagerRoute> {
-                ServerManagerScreen(appState) { navController.popBackStack() }
+                ServerManagerScreen(appState) { safeBack() }
             }
 
             // Player
             composable<NowPlayingRoute> {
                 NowPlayingScreen(
                     playbackManager = playbackManager,
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = safeBack,
                     onNavigateToQueue = { navController.navigate(QueueRoute) },
                     onNavigateToEQ = { navController.navigate(EQRoute) },
                     onNavigateToLyrics = { navController.navigate(LyricsRoute) },
@@ -357,14 +364,14 @@ private fun VibrdromeNavHost(appState: AppState) {
                 )
             }
             composable<QueueRoute> {
-                QueueScreen(playbackManager) { navController.popBackStack() }
+                QueueScreen(playbackManager) { safeBack() }
             }
-            composable<EQRoute> { EQScreen { navController.popBackStack() } }
+            composable<EQRoute> { EQScreen { safeBack() } }
             composable<VisualizerRoute> {
-                VisualizerScreen(playbackManager) { navController.popBackStack() }
+                VisualizerScreen(playbackManager) { safeBack() }
             }
             composable<LyricsRoute> {
-                LyricsScreen(playbackManager, appState.subsonicClient) { navController.popBackStack() }
+                LyricsScreen(playbackManager, appState.subsonicClient) { safeBack() }
             }
 
             // Search
@@ -372,7 +379,7 @@ private fun VibrdromeNavHost(appState: AppState) {
                 SearchScreen(appState.subsonicClient,
                     { navController.navigate(ArtistDetailRoute(it)) },
                     { navController.navigate(AlbumDetailRoute(it)) },
-                    { navController.popBackStack() })
+                    safeBack)
             }
         }
     }
