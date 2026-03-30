@@ -12,5 +12,17 @@ local.properties
 /app/release
 *.apk
 *.aab
+
+# Secrets / Signing (preventive)
 *.jks
+*.keystore
+*.env
+*.pem
+*.key
+google-services.json
+credentials.*
+secrets.*
 vibrdrome-release.jks
+
+# Claude Code
+.claude/
