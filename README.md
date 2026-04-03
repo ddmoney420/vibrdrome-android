@@ -21,6 +21,23 @@
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="screenshots/current.png" width="200" alt="Library"/>
+  <img src="screenshots/now_playing.png" width="200" alt="Now Playing"/>
+  <img src="screenshots/equalizer.png" width="200" alt="Equalizer"/>
+  <img src="screenshots/visualizer.png" width="200" alt="Visualizer"/>
+</p>
+<p align="center">
+  <img src="screenshots/album_detail.png" width="200" alt="Album Detail"/>
+  <img src="screenshots/lyrics.png" width="200" alt="Lyrics"/>
+  <img src="screenshots/search.png" width="200" alt="Search"/>
+  <img src="screenshots/radio.png" width="200" alt="Radio"/>
+</p>
+
+---
+
 ## ♪(๑ᴖ◡ᴖ๑)♪ Features
 
 ```
