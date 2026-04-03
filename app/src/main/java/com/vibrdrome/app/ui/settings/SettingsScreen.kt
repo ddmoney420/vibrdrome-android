@@ -16,8 +16,10 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.SignalCellularAlt
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -70,9 +72,13 @@ fun SettingsScreen(
     val eqEnabled by eqEngine.isEnabled.collectAsState()
     val eqPreset by eqEngine.currentPresetName.collectAsState()
     val crossfadeEnabled by playbackManager.crossfadeEnabled.collectAsState()
+    val wifiQuality by appState.streamQualityWifi.collectAsState()
+    val cellularQuality by appState.streamQualityCellular.collectAsState()
     val themeMode by appState.themeMode.collectAsState()
     var showThemeDialog by remember { mutableStateOf(false) }
     var showSignOutConfirm by remember { mutableStateOf(false) }
+    var showWifiQualityDialog by remember { mutableStateOf(false) }
+    var showCellularQualityDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     Scaffold(
@@ -138,6 +144,18 @@ fun SettingsScreen(
                         onCheckedChange = { playbackManager.setCrossfadeEnabled(it) },
                     )
                 },
+            )
+            ListItem(
+                headlineContent = { Text("Stream Quality (WiFi)") },
+                supportingContent = { Text(AppState.qualityLabel(wifiQuality)) },
+                leadingContent = { Icon(Icons.Default.Wifi, contentDescription = null) },
+                modifier = Modifier.clickable { showWifiQualityDialog = true },
+            )
+            ListItem(
+                headlineContent = { Text("Stream Quality (Cellular)") },
+                supportingContent = { Text(AppState.qualityLabel(cellularQuality)) },
+                leadingContent = { Icon(Icons.Default.SignalCellularAlt, contentDescription = null) },
+                modifier = Modifier.clickable { showCellularQualityDialog = true },
             )
             HorizontalDivider()
 
@@ -223,6 +241,24 @@ fun SettingsScreen(
         )
     }
 
+    if (showWifiQualityDialog) {
+        StreamQualityDialog(
+            title = "WiFi Stream Quality",
+            selected = wifiQuality,
+            onSelect = { appState.setStreamQualityWifi(it); showWifiQualityDialog = false },
+            onDismiss = { showWifiQualityDialog = false },
+        )
+    }
+
+    if (showCellularQualityDialog) {
+        StreamQualityDialog(
+            title = "Cellular Stream Quality",
+            selected = cellularQuality,
+            onSelect = { appState.setStreamQualityCellular(it); showCellularQualityDialog = false },
+            onDismiss = { showCellularQualityDialog = false },
+        )
+    }
+
     if (showSignOutConfirm) {
         AlertDialog(
             onDismissRequest = { showSignOutConfirm = false },
@@ -242,6 +278,38 @@ fun SettingsScreen(
             },
         )
     }
+}
+
+@Composable
+private fun StreamQualityDialog(
+    title: String,
+    selected: Int,
+    onSelect: (Int) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column {
+                AppState.QUALITY_OPTIONS.forEach { (value, label) ->
+                    ListItem(
+                        headlineContent = { Text(label) },
+                        leadingContent = {
+                            RadioButton(
+                                selected = selected == value,
+                                onClick = { onSelect(value) },
+                            )
+                        },
+                        modifier = Modifier.clickable { onSelect(value) },
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
 }
 
 @Composable

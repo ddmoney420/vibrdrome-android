@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import com.vibrdrome.app.audio.PlaybackManager
 import com.vibrdrome.app.network.InternetRadioStation
 import com.vibrdrome.app.network.SubsonicClient
+import com.vibrdrome.app.ui.components.AlbumArtView
 import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -116,20 +117,26 @@ fun RadioScreen(
         } else {
             LazyColumn(modifier = Modifier.padding(padding)) {
                 items(stations, key = { it.id }) { station ->
+                    val coverArtId = station.fixedCoverArt()
+                    val coverArtUrl = coverArtId?.let { client.coverArtURL(it, size = 80) }
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                playbackManager.playRadioStream(station.name, station.streamUrl)
+                                playbackManager.playRadioStream(station.name, station.streamUrl, coverArtId)
                             }
                             .padding(horizontal = 16.dp, vertical = 12.dp),
                     ) {
-                        Icon(
-                            Icons.Default.Radio,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
+                        if (coverArtUrl != null) {
+                            AlbumArtView(coverArtUrl = coverArtUrl, size = 44.dp, cornerRadius = 6.dp)
+                        } else {
+                            Icon(
+                                Icons.Default.Radio,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                        }
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(
@@ -149,7 +156,7 @@ fun RadioScreen(
                             }
                         }
                         IconButton(onClick = {
-                            playbackManager.playRadioStream(station.name, station.streamUrl)
+                            playbackManager.playRadioStream(station.name, station.streamUrl, coverArtId)
                         }) {
                             Icon(Icons.Default.PlayArrow, contentDescription = "Play")
                         }

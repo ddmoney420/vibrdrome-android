@@ -2,6 +2,8 @@ package com.vibrdrome.app.ui
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.net.Uri
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
@@ -140,6 +142,32 @@ class AppState(private val context: Context) {
     fun setThemeMode(mode: String) {
         _themeMode.value = mode
         prefs.edit().putString("themeMode", mode).apply()
+    }
+
+    // Stream quality (0 = Original, or maxBitRate value: 320, 256, 192, 128, 96)
+    private val _streamQualityWifi = MutableStateFlow(prefs.getInt("stream_quality_wifi", 0))
+    val streamQualityWifi: StateFlow<Int> = _streamQualityWifi.asStateFlow()
+
+    private val _streamQualityCellular = MutableStateFlow(prefs.getInt("stream_quality_cellular", 128))
+    val streamQualityCellular: StateFlow<Int> = _streamQualityCellular.asStateFlow()
+
+    fun setStreamQualityWifi(bitRate: Int) {
+        _streamQualityWifi.value = bitRate
+        prefs.edit().putInt("stream_quality_wifi", bitRate).apply()
+    }
+
+    fun setStreamQualityCellular(bitRate: Int) {
+        _streamQualityCellular.value = bitRate
+        prefs.edit().putInt("stream_quality_cellular", bitRate).apply()
+    }
+
+    /** Returns the effective maxBitRate based on current network, or 0 for Original quality. */
+    fun getEffectiveStreamQuality(): Int {
+        val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+        val isWifi = cm?.activeNetwork?.let {
+            cm.getNetworkCapabilities(it)?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)
+        } ?: true // Default to WiFi quality if we can't detect
+        return if (isWifi) _streamQualityWifi.value else _streamQualityCellular.value
     }
 
     // Music library folder selection
@@ -388,6 +416,18 @@ class AppState(private val context: Context) {
     }
 
     companion object {
+        val QUALITY_OPTIONS = listOf(
+            0 to "Original",
+            320 to "High (320 kbps)",
+            256 to "Medium (256 kbps)",
+            192 to "Standard (192 kbps)",
+            128 to "Low (128 kbps)",
+            96 to "Very Low (96 kbps)",
+        )
+
+        fun qualityLabel(bitRate: Int): String =
+            QUALITY_OPTIONS.find { it.first == bitRate }?.second ?: "Original"
+
         private fun createSecurePrefs(context: Context): SharedPreferences {
             val masterKey = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
             return EncryptedSharedPreferences.create(

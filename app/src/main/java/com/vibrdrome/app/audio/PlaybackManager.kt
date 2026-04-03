@@ -359,33 +359,36 @@ class PlaybackManager(
 
     // MARK: - Radio
 
-    fun playRadioStream(name: String, streamUrl: String) {
+    fun playRadioStream(name: String, streamUrl: String, coverArtId: String? = null) {
         ensureServiceStarted()
         // Resolve PLS/M3U playlists to direct stream URLs
         scope.launch {
             val resolvedUrl = resolveStreamUrl(streamUrl)
-            playRadioStreamDirect(name, resolvedUrl)
+            playRadioStreamDirect(name, resolvedUrl, coverArtId)
         }
     }
 
-    private fun playRadioStreamDirect(name: String, streamUrl: String) {
+    private fun playRadioStreamDirect(name: String, streamUrl: String, coverArtId: String? = null) {
         _queue.value = emptyList()
         // Create a dummy Song so MiniPlayer shows
         _currentSong.value = Song(
             id = "radio_${streamUrl.hashCode()}",
             title = name,
             artist = "Radio",
+            coverArt = coverArtId,
         )
-        _currentCoverArtUrl.value = null
+        _currentCoverArtUrl.value = coverArtId?.let { appState.subsonicClient.coverArtURL(it, size = 480) }
         _currentIndex.value = -1
         _durationMs.value = 0
         _positionMs.value = 0
+        val artUri = coverArtId?.let { Uri.parse(appState.subsonicClient.coverArtURL(it, size = 480)) }
         val mediaItem = MediaItem.Builder()
             .setUri(streamUrl)
             .setMediaMetadata(
                 MediaMetadata.Builder()
                     .setTitle(name)
                     .setArtist("Radio")
+                    .setArtworkUri(artUri)
                     .setIsPlayable(true)
                     .build()
             )
@@ -634,10 +637,11 @@ class PlaybackManager(
 
     private fun Song.toMediaItem(client: SubsonicClient, localPath: String? = null): MediaItem {
         val artUri = coverArt?.let { Uri.parse(client.coverArtURL(it, size = 480)) }
+        val quality = appState.getEffectiveStreamQuality()
         val streamUri = if (localPath != null) {
             Uri.fromFile(java.io.File(localPath)).toString()
         } else {
-            client.streamURL(id)
+            client.streamURL(id, maxBitRate = if (quality > 0) quality else null)
         }
         return MediaItem.Builder()
             .setMediaId(id)

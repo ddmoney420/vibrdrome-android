@@ -200,7 +200,15 @@ data class InternetRadioStation(
     val name: String,
     val streamUrl: String,
     val homePageUrl: String? = null,
-)
+    val coverArt: String? = null,
+) {
+    /** Workaround for Navidrome bug #5293: coverArt returns raw filename instead of ra-{id} */
+    fun fixedCoverArt(): String? {
+        if (coverArt.isNullOrEmpty()) return null
+        if (coverArt.startsWith("ra-")) return coverArt
+        return "ra-$id"
+    }
+}
 
 // MARK: - Lyrics (OpenSubsonic)
 
