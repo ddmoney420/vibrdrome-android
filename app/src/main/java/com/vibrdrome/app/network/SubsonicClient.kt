@@ -206,8 +206,8 @@ class SubsonicClient(
         }
     }
 
-    suspend fun getArtists(): List<ArtistIndex> {
-        val body = request(SubsonicEndpoint.GetArtists())
+    suspend fun getArtists(musicFolderId: String? = null): List<ArtistIndex> {
+        val body = request(SubsonicEndpoint.GetArtists(musicFolderId))
         return body.artists?.index ?: emptyList()
     }
 
@@ -231,8 +231,9 @@ class SubsonicClient(
         artistCount: Int = 20,
         albumCount: Int = 20,
         songCount: Int = 40,
+        musicFolderId: String? = null,
     ): SearchResult3 {
-        val body = request(SubsonicEndpoint.Search3(query, artistCount, albumCount, songCount))
+        val body = request(SubsonicEndpoint.Search3(query, artistCount, albumCount, songCount, musicFolderId = musicFolderId))
         return body.searchResult3 ?: SearchResult3()
     }
 
@@ -243,18 +244,19 @@ class SubsonicClient(
         genre: String? = null,
         fromYear: Int? = null,
         toYear: Int? = null,
+        musicFolderId: String? = null,
     ): List<Album> {
-        val body = request(SubsonicEndpoint.GetAlbumList2(type, pageSize = size, offset = offset, fromYear = fromYear, toYear = toYear, genre = genre))
+        val body = request(SubsonicEndpoint.GetAlbumList2(type, pageSize = size, offset = offset, fromYear = fromYear, toYear = toYear, genre = genre, musicFolderId = musicFolderId))
         return body.albumList2?.album ?: emptyList()
     }
 
-    suspend fun getRandomSongs(size: Int = 20, genre: String? = null): List<Song> {
-        val body = request(SubsonicEndpoint.GetRandomSongs(pageSize = size, genre = genre))
+    suspend fun getRandomSongs(size: Int = 20, genre: String? = null, musicFolderId: String? = null): List<Song> {
+        val body = request(SubsonicEndpoint.GetRandomSongs(pageSize = size, genre = genre, musicFolderId = musicFolderId))
         return body.randomSongs?.song ?: emptyList()
     }
 
-    suspend fun getStarred(): Starred2 {
-        val body = request(SubsonicEndpoint.GetStarred2)
+    suspend fun getStarred(musicFolderId: String? = null): Starred2 {
+        val body = request(SubsonicEndpoint.GetStarred2(musicFolderId))
         return body.starred2 ?: Starred2()
     }
 
@@ -265,12 +267,12 @@ class SubsonicClient(
 
     suspend fun star(id: String? = null, albumId: String? = null, artistId: String? = null) {
         performAction(SubsonicEndpoint.Star(id, albumId, artistId))
-        invalidateCache(SubsonicEndpoint.GetStarred2)
+        invalidateCache(SubsonicEndpoint.GetStarred2())
     }
 
     suspend fun unstar(id: String? = null, albumId: String? = null, artistId: String? = null) {
         performAction(SubsonicEndpoint.Unstar(id, albumId, artistId))
-        invalidateCache(SubsonicEndpoint.GetStarred2)
+        invalidateCache(SubsonicEndpoint.GetStarred2())
     }
 
     suspend fun setRating(id: String, rating: Int) {

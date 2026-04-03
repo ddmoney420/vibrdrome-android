@@ -32,11 +32,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.collectAsState
 import com.vibrdrome.app.network.Artist
 import com.vibrdrome.app.network.ArtistIndex
 import com.vibrdrome.app.network.SubsonicClient
 import com.vibrdrome.app.network.SubsonicError
+import com.vibrdrome.app.ui.AppState
 import com.vibrdrome.app.ui.components.AlbumArtView
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,15 +48,17 @@ fun ArtistsScreen(
     onArtistClick: (artistId: String) -> Unit,
     onNavigateBack: () -> Unit = {},
 ) {
+    val appState: AppState = koinInject()
+    val folderId by appState.selectedFolderId.collectAsState()
     var indexes by remember { mutableStateOf<List<ArtistIndex>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(folderId) {
         // Try cache first
         try {
             val cached = client.cachedResponse(
-                com.vibrdrome.app.network.SubsonicEndpoint.GetArtists(),
+                com.vibrdrome.app.network.SubsonicEndpoint.GetArtists(folderId),
                 ttlMs = 1_800_000,
             )
             if (cached != null) indexes = cached.artists?.index ?: emptyList()
@@ -61,7 +66,7 @@ fun ArtistsScreen(
 
         isLoading = indexes.isEmpty()
         try {
-            indexes = client.getArtists()
+            indexes = client.getArtists(folderId)
         } catch (e: Throwable) {
             if (indexes.isEmpty()) error = SubsonicError.userMessage(e)
         }

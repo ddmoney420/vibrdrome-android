@@ -34,8 +34,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.collectAsState
 import com.vibrdrome.app.audio.PlaybackManager
 import com.vibrdrome.app.network.SubsonicClient
+import com.vibrdrome.app.ui.AppState
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
@@ -53,6 +55,8 @@ fun SmartPlaylistScreen(
     onNavigateBack: () -> Unit,
 ) {
     val playbackManager: PlaybackManager = koinInject()
+    val appState: AppState = koinInject()
+    val folderId by appState.selectedFolderId.collectAsState()
     val scope = rememberCoroutineScope()
     var isLoading by remember { mutableStateOf(false) }
     var showInputDialog by remember { mutableStateOf<SmartGenerator?>(null) }
@@ -71,18 +75,19 @@ fun SmartPlaylistScreen(
         scope.launch {
             try {
                 val songs = when (generator.title) {
-                    "Random Mix" -> client.getRandomSongs(size = 50)
+                    "Random Mix" -> client.getRandomSongs(size = 50, musicFolderId = folderId)
                     "Artist Mix" -> {
-                        val results = client.search(input, artistCount = 1, albumCount = 0, songCount = 0)
+                        val results = client.search(input, artistCount = 1, albumCount = 0, songCount = 0, musicFolderId = folderId)
                         val artistId = results.artist?.firstOrNull()?.id
                         if (artistId != null) client.getSimilarSongs(artistId, count = 50)
                         else emptyList()
                     }
-                    "Genre Mix" -> client.getRandomSongs(size = 50, genre = input)
+                    "Genre Mix" -> client.getRandomSongs(size = 50, genre = input, musicFolderId = folderId)
                     "Top Songs" -> client.getTopSongs(input, count = 50)
                     "Recently Added" -> {
                         val albums = client.getAlbumList(
-                            com.vibrdrome.app.network.AlbumListType.NEWEST, size = 10
+                            com.vibrdrome.app.network.AlbumListType.NEWEST, size = 10,
+                            musicFolderId = folderId,
                         )
                         albums.flatMap { album ->
                             try { client.getAlbum(album.id).song ?: emptyList() }
@@ -90,7 +95,7 @@ fun SmartPlaylistScreen(
                         }.take(50)
                     }
                     "Starred Songs" -> {
-                        val starred = client.getStarred()
+                        val starred = client.getStarred(folderId)
                         (starred.song ?: emptyList()).shuffled()
                     }
                     else -> emptyList()

@@ -26,11 +26,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.collectAsState
 import com.vibrdrome.app.network.Album
 import com.vibrdrome.app.network.AlbumListType
 import com.vibrdrome.app.network.SubsonicClient
 import com.vibrdrome.app.network.SubsonicError
+import com.vibrdrome.app.ui.AppState
 import com.vibrdrome.app.ui.components.AlbumCard
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,6 +47,8 @@ fun AlbumsScreen(
     onAlbumClick: (albumId: String) -> Unit,
     onNavigateBack: () -> Unit = {},
 ) {
+    val appState: AppState = koinInject()
+    val folderId by appState.selectedFolderId.collectAsState()
     var albums by remember { mutableStateOf<List<Album>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -59,10 +64,10 @@ fun AlbumsScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(folderId) {
         isLoading = true
         try {
-            val result = client.getAlbumList(listType, size = pageSize, genre = genre, fromYear = fromYear, toYear = toYear)
+            val result = client.getAlbumList(listType, size = pageSize, genre = genre, fromYear = fromYear, toYear = toYear, musicFolderId = folderId)
             albums = result
             hasMore = result.size >= pageSize
         } catch (e: Throwable) {
@@ -82,6 +87,7 @@ fun AlbumsScreen(
                     genre = genre,
                     fromYear = fromYear,
                     toYear = toYear,
+                    musicFolderId = folderId,
                 )
                 albums = albums + result
                 hasMore = result.size >= pageSize

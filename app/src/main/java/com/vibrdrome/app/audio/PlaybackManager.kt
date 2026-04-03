@@ -34,8 +34,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -612,7 +614,11 @@ class PlaybackManager(
             }
         }
         if (songs.isEmpty()) return
-        if (!appState.isConfigured.value) return
+        // Wait for AppState to finish loading credentials (async secure prefs init)
+        if (!appState.isConfigured.value) {
+            val configured = withTimeoutOrNull(5000) { appState.isConfigured.first { it } }
+            if (configured == null) return // No saved credentials — nothing to restore
+        }
 
         _queue.value = songs
         val client = appState.subsonicClient

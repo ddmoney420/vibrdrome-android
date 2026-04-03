@@ -49,6 +49,7 @@ import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.net.URLEncoder
 import org.koin.compose.koinInject
 
 @Serializable
@@ -86,8 +87,9 @@ fun StationSearchScreen(
         delay(500)
         try {
             val client = HttpClient(Android)
+            val encoded = URLEncoder.encode(query, "UTF-8")
             val response = client.get(
-                "https://de1.api.radio-browser.info/json/stations/byname/$query?limit=30&order=clickcount&reverse=true"
+                "https://de1.api.radio-browser.info/json/stations/byname/$encoded?limit=30&order=clickcount&reverse=true"
             )
             results = json.decodeFromString(response.bodyAsText())
         } catch (_: Throwable) {

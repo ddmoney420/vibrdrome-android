@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Vibrdrome connects to user-specified Navidrome/Subsonic servers.
+    These are self-hosted on arbitrary domains and IPs (e.g. 192.168.1.x,
+    example.duckdns.org, navidrome.local) and many users run plain HTTP
+    on their home networks without a reverse proxy.
+
+    Because server domains are unknown at compile time, we cannot use
+    domain-specific <domain-config> exceptions. Instead, cleartext is
+    permitted in the base config — the same practical requirement as
+    the iOS ATS exception and the web client's mixed-content handling.
+
+    The app shows a security warning when the user enters an HTTP URL
+    and recommends setting up HTTPS with a reverse proxy (Caddy/nginx
+    + Let's Encrypt).
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

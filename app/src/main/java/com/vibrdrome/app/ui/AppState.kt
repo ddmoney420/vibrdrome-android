@@ -5,11 +5,16 @@ import android.content.SharedPreferences
 import android.net.Uri
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
+import com.vibrdrome.app.network.MusicFolder
 import com.vibrdrome.app.network.ResponseCache
 import com.vibrdrome.app.network.SubsonicClient
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -22,10 +27,71 @@ data class SavedServer(
     val username: String,
 )
 
-class AppState(context: Context) {
+@Serializable
+data class LibraryItem(
+    val id: String,
+    val visible: Boolean = true,
+)
+
+object LibraryItemIds {
+    // Pills
+    const val GENRES = "genres"
+    const val RADIO = "radio"
+    const val ARTISTS = "artists"
+    const val FAVORITES = "favorites"
+    const val ALBUMS = "albums"
+    const val FOLDERS = "folders"
+    const val SONGS = "songs"
+    const val DOWNLOADS = "downloads"
+    const val PLAYLISTS = "playlists"
+    const val RECENTLY_ADDED = "recently_added"
+    const val GENERATIONS = "generations"
+    const val RECENTLY_PLAYED = "recently_played"
+    const val RANDOM_MIX = "random_mix"
+    const val RANDOM_ALBUM = "random_album"
+    // Carousels
+    const val CAROUSEL_RECENT = "carousel_recent"
+    const val CAROUSEL_FREQUENT = "carousel_frequent"
+    const val CAROUSEL_RANDOM = "carousel_random"
+
+    val DEFAULT_ORDER = listOf(
+        GENRES, RADIO, ARTISTS, FAVORITES, ALBUMS, FOLDERS, SONGS, DOWNLOADS,
+        PLAYLISTS, RECENTLY_ADDED, GENERATIONS, RECENTLY_PLAYED, RANDOM_MIX, RANDOM_ALBUM,
+        CAROUSEL_RECENT, CAROUSEL_FREQUENT, CAROUSEL_RANDOM,
+    )
+
+    fun isCarousel(id: String) = id.startsWith("carousel_")
+
+    fun displayName(id: String): String = when (id) {
+        GENRES -> "Genres"
+        RADIO -> "Radio"
+        ARTISTS -> "Artists"
+        FAVORITES -> "Favorites"
+        ALBUMS -> "Albums"
+        FOLDERS -> "Folders"
+        SONGS -> "Songs"
+        DOWNLOADS -> "Downloads"
+        PLAYLISTS -> "Playlists"
+        RECENTLY_ADDED -> "Recently Added"
+        GENERATIONS -> "Generations"
+        RECENTLY_PLAYED -> "Recently Played"
+        RANDOM_MIX -> "Random Mix"
+        RANDOM_ALBUM -> "Random Album"
+        CAROUSEL_RECENT -> "Recently Added Carousel"
+        CAROUSEL_FREQUENT -> "Most Played Carousel"
+        CAROUSEL_RANDOM -> "Random Picks Carousel"
+        else -> id
+    }
+}
+
+class AppState(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("vibrdrome_prefs", Context.MODE_PRIVATE)
-    private val securePrefs: SharedPreferences = createSecurePrefs(context)
+    @Volatile
+    private var _securePrefs: SharedPreferences? = null
+    private val securePrefs: SharedPreferences
+        get() = _securePrefs ?: createSecurePrefs(context).also { _securePrefs = it }
     private val responseCache = ResponseCache(context)
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val _isConfigured = MutableStateFlow(false)
     val isConfigured: StateFlow<Boolean> = _isConfigured.asStateFlow()
@@ -76,11 +142,89 @@ class AppState(context: Context) {
         prefs.edit().putString("themeMode", mode).apply()
     }
 
+    // Music library folder selection
+    private val _musicFolders = MutableStateFlow<List<MusicFolder>>(emptyList())
+    val musicFolders: StateFlow<List<MusicFolder>> = _musicFolders.asStateFlow()
+
+    private val _selectedFolderId = MutableStateFlow<String?>(null)
+    /** null = "All Libraries" */
+    val selectedFolderId: StateFlow<String?> = _selectedFolderId.asStateFlow()
+
+    val selectedFolderName: String
+        get() {
+            val id = _selectedFolderId.value ?: return "All Libraries"
+            return _musicFolders.value.find { it.id == id }?.name ?: "All Libraries"
+        }
+
+    fun selectMusicFolder(folderId: String?) {
+        _selectedFolderId.value = folderId
+        val key = activeServerId?.let { "folder_$it" } ?: "selectedFolderId"
+        if (folderId != null) {
+            prefs.edit().putString(key, folderId).apply()
+        } else {
+            prefs.edit().remove(key).apply()
+        }
+    }
+
+    fun loadMusicFolders() {
+        scope.launch {
+            try {
+                val folders = subsonicClient.getMusicFolders()
+                _musicFolders.value = folders
+                // Restore saved selection for this server
+                val key = activeServerId?.let { "folder_$it" } ?: "selectedFolderId"
+                val savedId = prefs.getString(key, null)
+                if (savedId != null && folders.any { it.id == savedId }) {
+                    _selectedFolderId.value = savedId
+                } else {
+                    _selectedFolderId.value = null
+                }
+            } catch (_: Exception) {
+                _musicFolders.value = emptyList()
+            }
+        }
+    }
+
+    // Library layout customization
+    private val _libraryLayout = MutableStateFlow(loadLibraryLayout())
+    val libraryLayout: StateFlow<List<LibraryItem>> = _libraryLayout.asStateFlow()
+
+    private fun loadLibraryLayout(): List<LibraryItem> {
+        val data = prefs.getString("library_layout", null)
+        if (data != null) {
+            try {
+                val saved = Json.decodeFromString<List<LibraryItem>>(data)
+                // Merge with defaults: keep saved order + visibility, append any new items
+                val savedIds = saved.map { it.id }.toSet()
+                val newItems = LibraryItemIds.DEFAULT_ORDER
+                    .filter { it !in savedIds }
+                    .map { LibraryItem(it) }
+                return saved + newItems
+            } catch (_: Exception) {}
+        }
+        return LibraryItemIds.DEFAULT_ORDER.map { LibraryItem(it) }
+    }
+
+    fun updateLibraryLayout(items: List<LibraryItem>) {
+        _libraryLayout.value = items
+        prefs.edit().putString("library_layout", Json.encodeToString(items)).apply()
+    }
+
+    fun resetLibraryLayout() {
+        val defaults = LibraryItemIds.DEFAULT_ORDER.map { LibraryItem(it) }
+        updateLibraryLayout(defaults)
+    }
+
     private val json = Json { ignoreUnknownKeys = true }
 
     init {
         loadServers()
-        loadSavedCredentials()
+        // EncryptedSharedPreferences.create() does hardware-backed crypto key
+        // generation which can block for seconds — move off the main thread
+        scope.launch {
+            _securePrefs = createSecurePrefs(context)
+            loadSavedCredentials()
+        }
     }
 
     fun configure(url: String, username: String, password: String) {
@@ -95,6 +239,7 @@ class AppState(context: Context) {
         subsonicClient.updateCredentials(normalizedURL, username, password)
         _isConfigured.value = true
         _errorMessage.value = null
+        loadMusicFolders()
     }
 
     private fun loadSavedCredentials() {

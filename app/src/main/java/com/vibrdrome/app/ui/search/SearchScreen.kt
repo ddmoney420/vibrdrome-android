@@ -39,10 +39,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.collectAsState
 import com.vibrdrome.app.audio.PlaybackManager
 import com.vibrdrome.app.network.Artist
 import com.vibrdrome.app.network.SearchResult3
 import com.vibrdrome.app.network.SubsonicClient
+import com.vibrdrome.app.ui.AppState
 import com.vibrdrome.app.ui.components.AlbumArtView
 import com.vibrdrome.app.ui.components.AlbumCard
 import com.vibrdrome.app.ui.components.TrackRow
@@ -58,6 +60,8 @@ fun SearchScreen(
     onNavigateBack: () -> Unit,
 ) {
     val playbackManager: PlaybackManager = koinInject()
+    val appState: AppState = koinInject()
+    val folderId by appState.selectedFolderId.collectAsState()
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<SearchResult3?>(null) }
     var isSearching by remember { mutableStateOf(false) }
@@ -67,7 +71,7 @@ fun SearchScreen(
         focusRequester.requestFocus()
     }
 
-    LaunchedEffect(query) {
+    LaunchedEffect(query, folderId) {
         if (query.length < 2) {
             results = null
             return@LaunchedEffect
@@ -75,7 +79,7 @@ fun SearchScreen(
         isSearching = true
         delay(300)
         try {
-            results = client.search(query)
+            results = client.search(query, musicFolderId = folderId)
         } catch (_: Throwable) { }
         isSearching = false
     }

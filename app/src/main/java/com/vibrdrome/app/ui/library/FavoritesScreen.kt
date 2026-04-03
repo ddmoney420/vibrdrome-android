@@ -33,9 +33,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.collectAsState
 import com.vibrdrome.app.audio.PlaybackManager
 import com.vibrdrome.app.network.Starred2
 import com.vibrdrome.app.network.SubsonicClient
+import com.vibrdrome.app.ui.AppState
 import com.vibrdrome.app.ui.components.AlbumArtView
 import com.vibrdrome.app.ui.components.AlbumCard
 import com.vibrdrome.app.ui.components.TrackListItem
@@ -50,14 +52,16 @@ fun FavoritesScreen(
     onNavigateBack: () -> Unit = {},
 ) {
     val playbackManager: PlaybackManager = koinInject()
+    val appState: AppState = koinInject()
+    val folderId by appState.selectedFolderId.collectAsState()
     var starred by remember { mutableStateOf<Starred2?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("Artists", "Albums", "Songs")
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(folderId) {
         try {
-            starred = client.getStarred()
+            starred = client.getStarred(folderId)
         } catch (_: Throwable) {}
         isLoading = false
     }

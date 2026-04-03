@@ -6,6 +6,14 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+import java.util.Properties
+
+val localProps = Properties()
+val localPropsFile = rootProject.file("local.properties")
+if (localPropsFile.exists()) {
+    localPropsFile.inputStream().use { localProps.load(it) }
+}
+
 android {
     namespace = "com.vibrdrome.app"
     compileSdk = 35
@@ -26,10 +34,14 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file(System.getenv("RELEASE_STORE_FILE") ?: "../vibrdrome-release.jks")
-            storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: ""
-            keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: "vibrdrome"
-            keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: ""
+            storeFile = file(System.getenv("RELEASE_STORE_FILE")
+                ?: localProps.getProperty("RELEASE_STORE_FILE", "../vibrdrome-release.jks"))
+            storePassword = System.getenv("RELEASE_STORE_PASSWORD")
+                ?: localProps.getProperty("RELEASE_STORE_PASSWORD", "")
+            keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                ?: localProps.getProperty("RELEASE_KEY_ALIAS", "vibrdrome")
+            keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+                ?: localProps.getProperty("RELEASE_KEY_PASSWORD", "")
         }
     }
 

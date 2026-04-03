@@ -30,9 +30,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.collectAsState
 import com.vibrdrome.app.audio.PlaybackManager
 import com.vibrdrome.app.network.Song
 import com.vibrdrome.app.network.SubsonicClient
+import com.vibrdrome.app.ui.AppState
 import com.vibrdrome.app.ui.components.TrackListItem
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
@@ -46,13 +48,15 @@ fun SongsScreen(
     onGoToArtist: ((String) -> Unit)? = null,
 ) {
     val playbackManager: PlaybackManager = koinInject()
+    val appState: AppState = koinInject()
+    val folderId by appState.selectedFolderId.collectAsState()
     var songs by remember { mutableStateOf<List<Song>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(folderId) {
         try {
-            songs = client.getRandomSongs(size = 100)
+            songs = client.getRandomSongs(size = 100, musicFolderId = folderId)
         } catch (_: Throwable) {}
         isLoading = false
     }
@@ -77,7 +81,7 @@ fun SongsScreen(
                             scope.launch {
                                 isLoading = true
                                 try {
-                                    songs = client.getRandomSongs(size = 100)
+                                    songs = client.getRandomSongs(size = 100, musicFolderId = folderId)
                                 } catch (_: Throwable) {}
                                 isLoading = false
                             }

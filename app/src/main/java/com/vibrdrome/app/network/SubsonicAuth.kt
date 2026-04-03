@@ -1,6 +1,7 @@
 package com.vibrdrome.app.network
 
 import java.security.MessageDigest
+import java.security.SecureRandom
 
 class SubsonicAuth(
     val username: String,
@@ -16,9 +17,11 @@ class SubsonicAuth(
     @Volatile
     var triedBothModes: Boolean = false
 
+    private val secureRandom = SecureRandom()
+
     private fun generateSalt(length: Int = 12): String {
         val chars = "abcdefghijklmnopqrstuvwxyz0123456789"
-        return (1..length).map { chars.random() }.joinToString("")
+        return (1..length).map { chars[secureRandom.nextInt(chars.length)] }.joinToString("")
     }
 
     private fun md5Hash(input: String): String {

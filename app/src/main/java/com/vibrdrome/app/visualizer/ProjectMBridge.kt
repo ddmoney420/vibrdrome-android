@@ -59,9 +59,14 @@ class ProjectMBridge {
      */
     fun extractPresets(context: Context): String {
         val presetDir = java.io.File(context.filesDir, "projectm_presets")
-        if (presetDir.exists() && (presetDir.listFiles()?.size ?: 0) > 0) {
+        val assetPresets = try { context.assets.list("presets")?.size ?: 0 } catch (_: Exception) { 0 }
+        val existingPresets = presetDir.listFiles()?.size ?: 0
+        // Re-extract if count changed (preset bundle was updated)
+        if (presetDir.exists() && existingPresets == assetPresets && assetPresets > 0) {
             return presetDir.absolutePath
         }
+        // Clear old presets and re-extract
+        if (presetDir.exists()) presetDir.deleteRecursively()
         presetDir.mkdirs()
         try {
             copyAssetsFolder(context.assets, "presets", presetDir.absolutePath)

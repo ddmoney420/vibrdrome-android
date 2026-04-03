@@ -51,6 +51,7 @@ sealed class SubsonicEndpoint {
         val artistOffset: Int = 0,
         val albumOffset: Int = 0,
         val songOffset: Int = 0,
+        val musicFolderId: String? = null,
     ) : SubsonicEndpoint() {
         override val path = "/rest/search3"
         override val queryItems = buildMap {
@@ -61,6 +62,7 @@ sealed class SubsonicEndpoint {
             if (artistOffset > 0) put("artistOffset", artistOffset.toString())
             if (albumOffset > 0) put("albumOffset", albumOffset.toString())
             if (songOffset > 0) put("songOffset", songOffset.toString())
+            musicFolderId?.let { put("musicFolderId", it) }
         }
     }
 
@@ -71,6 +73,7 @@ sealed class SubsonicEndpoint {
         val fromYear: Int? = null,
         val toYear: Int? = null,
         val genre: String? = null,
+        val musicFolderId: String? = null,
     ) : SubsonicEndpoint() {
         override val path = "/rest/getAlbumList2"
         override val queryItems = buildMap {
@@ -80,6 +83,7 @@ sealed class SubsonicEndpoint {
             fromYear?.let { put("fromYear", it.toString()) }
             toYear?.let { put("toYear", it.toString()) }
             genre?.let { put("genre", it) }
+            musicFolderId?.let { put("musicFolderId", it) }
         }
     }
 
@@ -88,6 +92,7 @@ sealed class SubsonicEndpoint {
         val genre: String? = null,
         val fromYear: Int? = null,
         val toYear: Int? = null,
+        val musicFolderId: String? = null,
     ) : SubsonicEndpoint() {
         override val path = "/rest/getRandomSongs"
         override val queryItems = buildMap {
@@ -95,12 +100,15 @@ sealed class SubsonicEndpoint {
             genre?.let { put("genre", it) }
             fromYear?.let { put("fromYear", it.toString()) }
             toYear?.let { put("toYear", it.toString()) }
+            musicFolderId?.let { put("musicFolderId", it) }
         }
     }
 
-    data object GetStarred2 : SubsonicEndpoint() {
+    data class GetStarred2(val musicFolderId: String? = null) : SubsonicEndpoint() {
         override val path = "/rest/getStarred2"
-        override val queryItems = emptyMap<String, String>()
+        override val queryItems = buildMap {
+            musicFolderId?.let { put("musicFolderId", it) }
+        }
     }
 
     data object GetGenres : SubsonicEndpoint() {

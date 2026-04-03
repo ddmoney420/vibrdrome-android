@@ -34,8 +34,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.collectAsState
 import com.vibrdrome.app.network.FolderIndex
 import com.vibrdrome.app.network.SubsonicClient
+import com.vibrdrome.app.ui.AppState
+import org.koin.compose.koinInject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,12 +47,14 @@ fun FolderBrowserScreen(
     onFolderClick: (id: String, name: String) -> Unit,
     onNavigateBack: () -> Unit = {},
 ) {
+    val appState: AppState = koinInject()
+    val folderId by appState.selectedFolderId.collectAsState()
     var indexes by remember { mutableStateOf<List<FolderIndex>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(folderId) {
         try {
-            val response = client.getIndexes()
+            val response = client.getIndexes(folderId)
             indexes = response.index ?: emptyList()
         } catch (_: Throwable) {}
         isLoading = false

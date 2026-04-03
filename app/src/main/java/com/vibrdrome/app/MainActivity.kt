@@ -192,6 +192,7 @@ private fun VibrdromeNavHost(appState: AppState) {
             composable<LibraryRoute> {
                 LibraryScreen(
                     client = appState.subsonicClient,
+                    appState = appState,
                     onNavigateToArtists = { navController.navigate(ArtistsRoute) },
                     onNavigateToAlbums = { t, n -> navController.navigate(AlbumsListRoute(t, n)) },
                     onNavigateToAlbumDetail = { navController.navigate(AlbumDetailRoute(it)) },
