@@ -30,10 +30,9 @@ class PreBufferManager(context: Context) {
 
     private var preBufferJob: Job? = null
     private var preBufferedSongId: String? = null
-    private var preBufferedData: ByteArray? = null
 
-    // How many bytes to pre-buffer (~15 seconds of 320kbps = ~600KB)
-    private val preBufferBytes = 600 * 1024
+    // Warm the connection by reading a small amount (enough to establish HTTP + start server-side processing)
+    private val warmUpBytes = 16 * 1024
 
     /**
      * Check if we should start pre-buffering the next track.
@@ -52,24 +51,23 @@ class PreBufferManager(context: Context) {
         preBufferJob?.cancel()
         preBufferJob = scope.launch {
             try {
-                val buffer = ByteArrayOutputStream(preBufferBytes)
+                // Warm the HTTP connection — establishes TCP + TLS + triggers server-side
+                // stream preparation. The actual data is discarded; ExoPlayer will make
+                // its own request but the server-side cache/transcoding will be warm.
                 val connection = URL(nextStreamUrl).openConnection()
                 connection.connectTimeout = 5000
                 connection.readTimeout = 5000
                 connection.getInputStream().use { input ->
                     val chunk = ByteArray(8192)
                     var totalRead = 0
-                    while (totalRead < preBufferBytes) {
+                    while (totalRead < warmUpBytes) {
                         val read = input.read(chunk)
                         if (read <= 0) break
-                        buffer.write(chunk, 0, read)
                         totalRead += read
                     }
                 }
-                preBufferedData = buffer.toByteArray()
             } catch (_: Exception) {
-                // Pre-buffering is best-effort — silent failure is fine
-                preBufferedData = null
+                // Connection warming is best-effort — silent failure is fine
             }
         }
     }
@@ -80,14 +78,6 @@ class PreBufferManager(context: Context) {
     fun cancel() {
         preBufferJob?.cancel()
         preBufferedSongId = null
-        preBufferedData = null
-    }
-
-    /**
-     * Whether the next track's data has been pre-buffered.
-     */
-    fun isPreBuffered(songId: String): Boolean {
-        return songId == preBufferedSongId && preBufferedData != null
     }
 
     private fun isMeteredAndDataSaver(): Boolean {

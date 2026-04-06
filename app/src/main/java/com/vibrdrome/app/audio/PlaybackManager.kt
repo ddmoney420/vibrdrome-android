@@ -11,8 +11,10 @@ import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import androidx.media3.common.audio.AudioProcessor
 import androidx.media3.common.util.UnstableApi
+import androidx.media3.datasource.DataSpec
 import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.TransferListener
 import androidx.media3.exoplayer.DefaultRenderersFactory
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
@@ -893,10 +895,13 @@ class PlaybackManager(
                             crossfadeDurationMs = xfadeDuration,
                             scope = scope,
                             baseVolume = (replayGainFactor * sleepFadeFactor).coerceIn(0f, 1f),
-                            onCrossfadeComplete = {
-                                // Don't call seekToNextMediaItem — ExoPlayer will
-                                // naturally advance when the current track ends.
-                                // The overlay already played the next track's audio.
+                            onCrossfadeComplete = { overlapMs ->
+                                // Advance primary to next track and seek past the
+                                // overlap region that the overlay already played
+                                if (player.hasNextMediaItem()) {
+                                    player.seekToNextMediaItem()
+                                    player.seekTo(player.currentMediaItemIndex, overlapMs)
+                                }
                             },
                         )
                     }
@@ -1011,12 +1016,32 @@ class PlaybackManager(
             }
         }
         // HTTP data source with User-Agent for radio stream compatibility
+        // Throughput tracking for adaptive bitrate
+        val throughputListener = object : TransferListener {
+            private var transferStart = 0L
+            private var transferBytes = 0L
+            override fun onTransferInitializing(source: androidx.media3.datasource.DataSource, dataSpec: DataSpec, isNetwork: Boolean) {}
+            override fun onTransferStart(source: androidx.media3.datasource.DataSource, dataSpec: DataSpec, isNetwork: Boolean) {
+                transferStart = System.currentTimeMillis()
+                transferBytes = 0
+            }
+            override fun onBytesTransferred(source: androidx.media3.datasource.DataSource, dataSpec: DataSpec, isNetwork: Boolean, bytesTransferred: Int) {
+                transferBytes += bytesTransferred
+            }
+            override fun onTransferEnd(source: androidx.media3.datasource.DataSource, dataSpec: DataSpec, isNetwork: Boolean) {
+                val elapsed = System.currentTimeMillis() - transferStart
+                if (isNetwork && elapsed > 0 && transferBytes > 1024) {
+                    adaptiveBitrate.recordThroughput(transferBytes, elapsed)
+                }
+            }
+        }
         val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             .setUserAgent("Vibrdrome/1.0 (Android)")
             .setConnectTimeoutMs(30_000)
             .setReadTimeoutMs(30_000)
             .setAllowCrossProtocolRedirects(true)
             .setDefaultRequestProperties(mapOf("Icy-MetaData" to "1"))
+            .setTransferListener(throughputListener)
         val dataSourceFactory = DefaultDataSource.Factory(appContext, httpDataSourceFactory)
         val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
 

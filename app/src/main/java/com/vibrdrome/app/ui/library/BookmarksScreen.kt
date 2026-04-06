@@ -89,12 +89,10 @@ fun BookmarksScreen(
                             .clickable {
                                 // Resume playback from bookmark position
                                 entry?.let {
-                                    playbackManager.play(listOf(it))
-                                    // Seek to bookmarked position after a brief delay for player to prepare
-                                    scope.launch {
-                                        kotlinx.coroutines.delay(500)
-                                        playbackManager.seekTo(bookmark.position.toLong())
-                                    }
+                                    playbackManager.play(listOf(it), startIndex = 0)
+                                    // Use seekTo after play — ExoPlayer handles this correctly
+                                    // even if player is still preparing
+                                    playbackManager.seekTo(bookmark.position.toLong())
                                 }
                             }
                             .padding(horizontal = 16.dp, vertical = 12.dp),

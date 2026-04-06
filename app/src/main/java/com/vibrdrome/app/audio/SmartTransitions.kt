@@ -21,6 +21,10 @@ class SmartTransitions(context: Context) {
     private val _lastDecision = MutableStateFlow<String?>(null)
     val lastDecision: StateFlow<String?> = _lastDecision.asStateFlow()
 
+    // Cache to avoid recomputing every 250ms
+    private var cachedPairKey: String? = null
+    private var cachedDecision: TransitionDecision? = null
+
     fun setEnabled(enabled: Boolean) {
         _enabled.value = enabled
         prefs.edit().putBoolean("smart_transitions_enabled", enabled).apply()
@@ -39,45 +43,49 @@ class SmartTransitions(context: Context) {
         if (!_enabled.value) return null
         if (currentSong == null || nextSong == null) return null
 
+        // Return cached decision if same song pair
+        val pairKey = "${currentSong.id}:${nextSong.id}:$isShuffled"
+        if (pairKey == cachedPairKey) return cachedDecision
+
         // Rule 1: Same album played in order → gapless
         if (!isShuffled && currentSong.albumId != null && currentSong.albumId == nextSong.albumId) {
-            val decision = TransitionDecision(TransitionType.GAPLESS, 0)
             log("Gapless: same album '${currentSong.album}' in order")
-            return decision
+            return cacheDecision(pairKey, TransitionDecision(TransitionType.GAPLESS, 0))
         }
 
-        // Rule 2: Live album → always gapless (tracks flow into each other)
-        // Detect via genre containing "live" or album name containing "live"
+        // Rule 2: Live album → always gapless
         if (isLiveContent(currentSong) && isLiveContent(nextSong)) {
-            val decision = TransitionDecision(TransitionType.GAPLESS, 0)
             log("Gapless: live album detected")
-            return decision
+            return cacheDecision(pairKey, TransitionDecision(TransitionType.GAPLESS, 0))
         }
 
         // Rule 3: Same artist → short crossfade
         if (currentSong.artist == nextSong.artist) {
-            val decision = TransitionDecision(TransitionType.CROSSFADE, 3000)
             log("Crossfade 3s: same artist '${currentSong.artist}'")
-            return decision
+            return cacheDecision(pairKey, TransitionDecision(TransitionType.CROSSFADE, 3000))
         }
 
         // Rule 4: Large genre shift → long crossfade
         val genreDistance = genreDistance(currentSong.genre, nextSong.genre)
         if (genreDistance > 0.7f) {
-            val decision = TransitionDecision(TransitionType.CROSSFADE, 8000)
             log("Crossfade 8s: large genre shift '${currentSong.genre}' → '${nextSong.genre}'")
-            return decision
+            return cacheDecision(pairKey, TransitionDecision(TransitionType.CROSSFADE, 8000))
         }
 
         // Rule 5: Moderate genre shift or different albums → medium crossfade
         if (genreDistance > 0.3f || currentSong.albumId != nextSong.albumId) {
-            val decision = TransitionDecision(TransitionType.CROSSFADE, 5000)
             log("Crossfade 5s: different album/genre")
-            return decision
+            return cacheDecision(pairKey, TransitionDecision(TransitionType.CROSSFADE, 5000))
         }
 
         // Default: standard crossfade
-        return TransitionDecision(TransitionType.CROSSFADE, 5000)
+        return cacheDecision(pairKey, TransitionDecision(TransitionType.CROSSFADE, 5000))
+    }
+
+    private fun cacheDecision(key: String, decision: TransitionDecision): TransitionDecision {
+        cachedPairKey = key
+        cachedDecision = decision
+        return decision
     }
 
     private fun isLiveContent(song: Song): Boolean {

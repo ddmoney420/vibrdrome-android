@@ -45,17 +45,20 @@ class NowPlayingWidgetProvider : AppWidgetProvider(), KoinComponent {
             }
             ACTION_NEXT -> {
                 playbackManager.next()
-                // Delay refresh for track change to settle
+                val pendingResult = goAsync()
                 CoroutineScope(Dispatchers.Main + SupervisorJob()).launch {
                     kotlinx.coroutines.delay(500)
                     refreshAll(context)
+                    pendingResult.finish()
                 }
             }
             ACTION_PREVIOUS -> {
                 playbackManager.previous()
+                val pendingResult = goAsync()
                 CoroutineScope(Dispatchers.Main + SupervisorJob()).launch {
                     kotlinx.coroutines.delay(500)
                     refreshAll(context)
+                    pendingResult.finish()
                 }
             }
         }

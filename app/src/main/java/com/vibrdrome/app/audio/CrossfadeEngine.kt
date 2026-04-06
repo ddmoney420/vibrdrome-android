@@ -76,6 +76,11 @@ class CrossfadeEngine(
      * @param baseVolume The base volume to apply (from ReplayGain, sleep timer, etc.)
      * @param onCrossfadeComplete Called when the crossfade finishes — primary should advance
      */
+    /**
+     * @param crossfadeDurationMs Duration of the crossfade blend
+     * @param onCrossfadeComplete Called when blend finishes. The primary player should
+     *        advance to next track and seek past the overlap region.
+     */
     fun checkCrossfade(
         primaryPlayer: ExoPlayer,
         nextMediaItem: MediaItem?,
@@ -83,7 +88,7 @@ class CrossfadeEngine(
         crossfadeDurationMs: Long,
         scope: CoroutineScope,
         baseVolume: Float,
-        onCrossfadeComplete: () -> Unit,
+        onCrossfadeComplete: (overlapMs: Long) -> Unit,
     ) {
         if (!enabled || nextMediaItem == null) return
         if (crossfadeJob?.isActive == true) return // Already crossfading
@@ -109,7 +114,7 @@ class CrossfadeEngine(
         durationMs: Long,
         scope: CoroutineScope,
         baseVolume: Float,
-        onComplete: () -> Unit,
+        onComplete: (overlapMs: Long) -> Unit,
     ) {
         val overlay = getOrCreateOverlayPlayer()
 
@@ -119,6 +124,8 @@ class CrossfadeEngine(
         overlay.volume = 0f
         overlay.play()
         overlayPrepared = true
+
+        val startTime = System.currentTimeMillis()
 
         crossfadeJob = scope.launch {
             val stepMs = 33L
@@ -136,13 +143,14 @@ class CrossfadeEngine(
                 delay(stepMs)
             }
 
-            // Crossfade complete
+            // Crossfade complete — calculate how long the overlay played
+            val overlapMs = System.currentTimeMillis() - startTime
             primaryPlayer.volume = baseVolume
             overlay.stop()
             overlay.clearMediaItems()
             overlayPrepared = false
 
-            onComplete()
+            onComplete(overlapMs)
         }
     }
 
