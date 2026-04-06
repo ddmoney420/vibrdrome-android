@@ -50,10 +50,16 @@ ______  _____   ___   _____  _   _ ______  _____  _____
 ```
 
 ### Playback ♪～(´ε｀ )
-- **Gapless playback** with crossfade support
-- **10-band equalizer** with presets and ReplayGain
+- **Gapless playback** with true dual-player crossfade (3 curve types)
+- **Smart transitions** — auto gapless for albums, variable crossfade for genre shifts
+- **10-band parametric EQ** with presets, AutoEQ/APO import, and per-device profiles
+- **ReplayGain** (track/album/auto mode) with pre-amp and peak limiting
+- **Audio normalization** for tracks without ReplayGain tags
+- **Haptic feedback** synced to bass beats (3 intensity levels)
+- **Immersive Mode** — visualizer + haptics + crossfade in one toggle
 - **Playback speed** control (0.5x - 2.0x)
 - **Sleep timer** with volume fade
+- **Adaptive bitrate** — auto-adjusts quality based on network speed
 
 ### Library ♬♩♪♩
 - Browse by **artists, albums, songs, genres, playlists, and folders**
@@ -69,14 +75,22 @@ ______  _____   ___   _____  _   _ ______  _____  _____
 
 ### Offline & Downloads (⌐■_■)
 - **Download songs, albums, and playlists** for offline listening
-- **Auto-download favorites**
+- **Batch downloads** — download entire albums or playlists at once
+- **Offline action queue** — stars and scrobbles sync when back online
 - **Cache management** with configurable limits
 
 ### Platform ᕦ(ò_óˇ)ᕤ
-- **Android Auto** support
+- **Chromecast** support — cast to any Cast device
+- **Jukebox Mode** — play through your server's speakers (remote control)
+- **Android Auto** support with full browse tree
+- **Home screen widget** — album art, controls, auto-updating
 - **Internet radio** — browse, search, and add custom streams (PLS/M3U)
 - **Multi-server support** with secure credential storage
-- **Scrobbling** with offline queue
+- **Scrobbling** with duplicate prevention and offline queue
+- **Queue sync** — resume playback across devices
+- **Bookmarks** — save and resume positions
+- **Listening stats** — top artists, albums, genres, streaks, activity heatmap
+- **Playlist sharing** — toggle public/private for multi-user servers
 
 ### Customization ─=≡Σ((( つ◕ل͜◕)つ
 - **Dark and light themes** with accent colors

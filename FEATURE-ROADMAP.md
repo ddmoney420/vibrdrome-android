@@ -406,5 +406,40 @@ Items to revisit after Phase 6 or during a dedicated polish sprint.
 
 ---
 
-*Last updated: 2026-04-04*
+## Phase 7: Jukebox Mode (Community Request)
+
+Server-side playback — the app acts as a remote control while Navidrome plays through its own speakers.
+
+### 7.1 Jukebox Implementation
+- [x] `jukeboxControl` API endpoint with all actions (get, status, start, stop, skip, add, set, clear, remove, shuffle, setGain)
+- [x] `JukeboxStatus` and `JukeboxPlaylist` response models
+- [x] `JukeboxManager` with full playback control and server polling
+- [x] Settings toggle to enable/disable jukebox mode
+- [x] "Playing on server" indicator on NowPlaying screen
+- [x] Transport controls route to jukebox when active
+- [x] Volume control via jukebox gain (0.0-1.0)
+- [ ] Jukebox volume slider on NowPlaying (instead of device volume)
+- [ ] MiniPlayer jukebox indicator
+- [ ] Queue management UI for jukebox (separate from local queue)
+
+> **Requires:** Navidrome configured with `Jukebox.Enabled = true` and MPV installed on server.
+
+---
+
+## Implementation Status
+
+| Phase | Status | Commits |
+|---|---|---|
+| Phase 1: Table Stakes | Complete | c6aced9 |
+| Phase 2: Audio Excellence | Complete | c6aced9 |
+| Phase 3: Smart Features | Complete | c6aced9 |
+| Phase 4: Immersive Mode | Complete | c6aced9 |
+| Phase 5: Platform Polish | Complete | c6aced9 |
+| Phase 6: Delight Features | Complete | c6aced9 |
+| Polish Sprint | Complete | 3230352 |
+| Phase 7: Jukebox Mode | Core complete | f243389 |
+
+---
+
+*Last updated: 2026-04-06*
 *Generated for Vibrdrome Android by Claude Code*
