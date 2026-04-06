@@ -332,6 +332,11 @@ class SubsonicClient(
         performAction(SubsonicEndpoint.DeleteInternetRadioStation(id))
     }
 
+    suspend fun getNowPlaying(): List<NowPlayingEntry> {
+        val body = request(SubsonicEndpoint.GetNowPlaying)
+        return body.nowPlaying?.entry ?: emptyList()
+    }
+
     suspend fun getPlayQueue(): PlayQueue? {
         val body = request(SubsonicEndpoint.GetPlayQueue)
         return body.playQueue

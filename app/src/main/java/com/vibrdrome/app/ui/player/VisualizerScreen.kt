@@ -44,7 +44,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
+import com.vibrdrome.app.audio.HapticEngine
 import com.vibrdrome.app.audio.PlaybackManager
+import org.koin.compose.koinInject
 import com.vibrdrome.app.visualizer.ProjectMBridge
 import com.vibrdrome.app.visualizer.ProjectMRenderer
 import com.vibrdrome.app.visualizer.ShaderPresets
@@ -111,6 +113,8 @@ private fun CustomShaderVisualizer(
     onSwitchMode: () -> Unit,
 ) {
     val isPlaying by playbackManager.isPlaying.collectAsState()
+    val isCasting by playbackManager.isCasting.collectAsState()
+    val hapticEngine: HapticEngine = koinInject()
     var presetIndex by remember { mutableIntStateOf(0) }
     val renderer = remember { VisualizerRenderer() }
 
@@ -121,6 +125,10 @@ private fun CustomShaderVisualizer(
             renderer.bass = bass
             renderer.mid = mid
             renderer.treble = treble
+            // Feed haptic engine with bass energy
+            hapticEngine.onBassEnergy(bass, isCasting)
+            // Feed audio normalizer
+            playbackManager.feedNormalizerData(waveform)
         }
         onDispose {
             try { viz?.enabled = false } catch (_: Exception) {}
@@ -179,14 +187,18 @@ private fun MilkdropVisualizer(
 ) {
     val context = LocalContext.current
     val isPlaying by playbackManager.isPlaying.collectAsState()
+    val isCasting by playbackManager.isCasting.collectAsState()
+    val hapticEngine: HapticEngine = koinInject()
     val bridge = remember { ProjectMBridge() }
     val presetPath = remember { bridge.extractPresets(context) }
     val renderer = remember { ProjectMRenderer(bridge, presetPath) }
     var presetName by remember { mutableStateOf("Milkdrop") }
 
     DisposableEffect(Unit) {
-        val viz = setupVisualizer(playbackManager) { waveform, _, _, _, _, _ ->
+        val viz = setupVisualizer(playbackManager) { waveform, _, bass, _, _, _ ->
             renderer.waveformData = waveform
+            hapticEngine.onBassEnergy(bass, isCasting)
+            playbackManager.feedNormalizerData(waveform)
         }
         onDispose {
             try { viz?.enabled = false } catch (_: Exception) {}
@@ -282,7 +294,7 @@ private fun setupVisualizer(
     onData: (waveform: ByteArray, fft: ByteArray, bass: Float, mid: Float, treble: Float, energy: Float) -> Unit,
 ): Visualizer? {
     return try {
-        Visualizer(playbackManager.player.audioSessionId).apply {
+        Visualizer(playbackManager.localPlayer.audioSessionId).apply {
             captureSize = Visualizer.getCaptureSizeRange()[1].coerceAtMost(256)
             setDataCaptureListener(
                 object : Visualizer.OnDataCaptureListener {

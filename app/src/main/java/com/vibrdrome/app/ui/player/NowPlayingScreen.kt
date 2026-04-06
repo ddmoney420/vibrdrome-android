@@ -2,6 +2,8 @@ package com.vibrdrome.app.ui.player
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,6 +18,11 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Subtitles
+import android.widget.Toast
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.BookmarkAdd
+import androidx.compose.material.icons.filled.Cast
+import androidx.compose.material.icons.filled.CastConnected
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Pause
@@ -38,6 +45,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -48,9 +56,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+// AndroidView not used — Cast uses system settings intent
+import kotlinx.coroutines.launch
 import androidx.media3.common.Player
+// MediaRouteButton removed — incompatible with Compose themes on some devices
+import com.vibrdrome.app.audio.AdaptiveBitrate
+import com.vibrdrome.app.audio.HapticEngine
+import com.vibrdrome.app.audio.ImmersiveMode
 import com.vibrdrome.app.audio.PlaybackManager
+import com.vibrdrome.app.audio.ReplayGainMode
+import org.koin.compose.koinInject
 import com.vibrdrome.app.audio.SleepTimer
 import com.vibrdrome.app.ui.components.AlbumArtView
 import com.vibrdrome.app.util.formatDurationMs
@@ -75,6 +92,9 @@ fun NowPlayingScreen(
     val shuffleEnabled by playbackManager.shuffleEnabled.collectAsState()
     val playbackSpeed by playbackManager.playbackSpeed.collectAsState()
     val coverArtUrl by playbackManager.currentCoverArtUrl.collectAsState()
+    val isCasting by playbackManager.isCasting.collectAsState()
+    val castDeviceName by playbackManager.castDeviceName.collectAsState()
+    val activityContext = LocalContext.current
 
     val song = currentSong
     if (song == null) {
@@ -111,13 +131,49 @@ fun NowPlayingScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onNavigateToVisualizer) {
+                    // Cast button — opens system Cast route selector dialog
+                    IconButton(onClick = {
+                        try {
+                            val castCtx = playbackManager.castManager.getCastContext() ?: return@IconButton
+                            val router = androidx.mediarouter.media.MediaRouter.getInstance(activityContext)
+                            val selector = com.google.android.gms.cast.CastMediaControlIntent.categoryForCast(
+                                com.google.android.gms.cast.CastMediaControlIntent.DEFAULT_MEDIA_RECEIVER_APPLICATION_ID
+                            )
+                            val routeSelector = androidx.mediarouter.media.MediaRouteSelector.Builder()
+                                .addControlCategory(selector)
+                                .build()
+                            if (isCasting) {
+                                castCtx.sessionManager.endCurrentSession(true)
+                            } else {
+                                // Trigger Cast SDK's device chooser via MediaRouter
+                                router.addCallback(routeSelector, object : androidx.mediarouter.media.MediaRouter.Callback() {}, androidx.mediarouter.media.MediaRouter.CALLBACK_FLAG_PERFORM_ACTIVE_SCAN)
+                                // Open system Cast settings as fallback
+                                try {
+                                    val intent = android.content.Intent("android.settings.CAST_SETTINGS")
+                                    activityContext.startActivity(intent)
+                                } catch (_: Exception) {
+                                    try {
+                                        val intent = android.content.Intent(android.provider.Settings.ACTION_CAST_SETTINGS)
+                                        activityContext.startActivity(intent)
+                                    } catch (_: Exception) {}
+                                }
+                            }
+                        } catch (_: Exception) {}
+                    }) {
+                        Icon(
+                            if (isCasting) Icons.Default.CastConnected else Icons.Default.Cast,
+                            contentDescription = "Cast",
+                            tint = if (isCasting) MaterialTheme.colorScheme.primary
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    IconButton(onClick = onNavigateToVisualizer, enabled = !isCasting) {
                         Icon(Icons.Default.Waves, contentDescription = "Visualizer")
                     }
                     IconButton(onClick = onNavigateToLyrics) {
                         Icon(Icons.Default.Subtitles, contentDescription = "Lyrics")
                     }
-                    IconButton(onClick = onNavigateToEQ) {
+                    IconButton(onClick = onNavigateToEQ, enabled = !isCasting) {
                         Icon(Icons.Default.Equalizer, contentDescription = "Equalizer")
                     }
                     IconButton(onClick = onNavigateToQueue) {
@@ -132,15 +188,38 @@ fun NowPlayingScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(horizontal = 32.dp),
+                .padding(horizontal = 32.dp)
+                .verticalScroll(rememberScrollState()),
         ) {
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(16.dp))
 
             AlbumArtView(
                 coverArtUrl = coverArtUrl,
-                size = 300.dp,
+                size = 280.dp,
                 cornerRadius = 16.dp,
             )
+
+            // Casting indicator
+            if (isCasting) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        Icons.Default.CastConnected,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(Modifier.size(4.dp))
+                    Text(
+                        text = "Casting to ${castDeviceName ?: "device"}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
 
             Spacer(Modifier.height(32.dp))
 
@@ -172,6 +251,47 @@ fun NowPlayingScreen(
                     overflow = TextOverflow.Ellipsis,
                     modifier = if (onNavigateToAlbum != null && song.albumId != null)
                         Modifier.clickable { onNavigateToAlbum(song.albumId!!) } else Modifier,
+                )
+            }
+
+            // ReplayGain / normalization indicator
+            val replayGain = song.replayGain
+            if (replayGain?.trackGain != null || replayGain?.albumGain != null) {
+                val mode = playbackManager.replayGainMode.collectAsState().value
+                val gain = when (mode) {
+                    ReplayGainMode.ALBUM -> replayGain.albumGain ?: replayGain.trackGain
+                    else -> replayGain.trackGain ?: replayGain.albumGain
+                }
+                if (gain != null) {
+                    Text(
+                        text = "RG: %+.1f dB".format(gain),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                    )
+                }
+            }
+
+            // Quality + Scrobble indicators
+            val adaptiveBitrateEngine: AdaptiveBitrate = koinInject()
+            val adaptiveQuality by adaptiveBitrateEngine.currentQuality.collectAsState()
+            if (adaptiveQuality != null) {
+                Text(
+                    text = adaptiveBitrateEngine.qualityLabel(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+                )
+            }
+
+            // Scrobble indicator
+            val lastScrobbleTime by playbackManager.lastScrobbleTime.collectAsState()
+            val showScrobbled = remember(lastScrobbleTime) {
+                System.currentTimeMillis() - lastScrobbleTime < 3000
+            }
+            if (showScrobbled) {
+                Text(
+                    text = "Scrobbled",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.7f),
                 )
             }
 
@@ -264,9 +384,11 @@ fun NowPlayingScreen(
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
 
-            // Speed + Sleep timer row
+            // Speed + Sleep + Bookmark row
+            val bookmarkScope = rememberCoroutineScope()
+            val bookmarkContext = LocalContext.current
             val sleepTimer = playbackManager.sleepTimer
             val sleepActive by sleepTimer.isActive.collectAsState()
             val sleepRemaining by sleepTimer.remainingSeconds.collectAsState()
@@ -307,6 +429,26 @@ fun NowPlayingScreen(
                         )
                     }
                 }
+
+                // Bookmark current position
+                val appState: com.vibrdrome.app.ui.AppState = koinInject()
+                TextButton(onClick = {
+                    bookmarkScope.launch {
+                        try {
+                            appState.subsonicClient.createBookmark(song.id, positionMs.toInt())
+                            Toast.makeText(bookmarkContext, "Bookmarked", Toast.LENGTH_SHORT).show()
+                        } catch (_: Exception) {
+                            Toast.makeText(bookmarkContext, "Bookmark failed", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }) {
+                    Icon(
+                        Icons.Default.BookmarkAdd,
+                        contentDescription = "Bookmark",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
             }
 
             if (showSleepDialog) {
@@ -336,7 +478,7 @@ fun NowPlayingScreen(
                 )
             }
 
-            Spacer(Modifier.weight(1f))
+            Spacer(Modifier.height(16.dp))
         }
     }
 }

@@ -262,6 +262,11 @@ sealed class SubsonicEndpoint {
         override val queryItems = mapOf("id" to id)
     }
 
+    data object GetNowPlaying : SubsonicEndpoint() {
+        override val path = "/rest/getNowPlaying"
+        override val queryItems = emptyMap<String, String>()
+    }
+
     data object GetPlayQueue : SubsonicEndpoint() {
         override val path = "/rest/getPlayQueue"
         override val queryItems = emptyMap<String, String>()

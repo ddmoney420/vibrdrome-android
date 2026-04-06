@@ -36,6 +36,11 @@ class PlaybackService : MediaLibraryService() {
         super.onCreate()
         session = MediaLibrarySession.Builder(this, playbackManager.player, BrowseCallback())
             .build()
+
+        // Swap the MediaSession player when Cast state changes
+        playbackManager.onPlayerSwapped = { newPlayer ->
+            session?.player = newPlayer
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? {
@@ -133,7 +138,9 @@ class PlaybackService : MediaLibraryService() {
             parentId == ROOT_ID -> listOf(
                 buildBrowsable("recent", "Recently Added", MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS),
                 buildBrowsable("artists", "Artists", MediaMetadata.MEDIA_TYPE_FOLDER_ARTISTS),
+                buildBrowsable("albums", "Albums", MediaMetadata.MEDIA_TYPE_FOLDER_ALBUMS),
                 buildBrowsable("playlists", "Playlists", MediaMetadata.MEDIA_TYPE_FOLDER_PLAYLISTS),
+                buildBrowsable("radio", "Radio", MediaMetadata.MEDIA_TYPE_FOLDER_MIXED),
             )
             parentId == "artists" -> {
                 client.getArtists().flatMap { index ->
@@ -176,6 +183,34 @@ class PlaybackService : MediaLibraryService() {
                         "album:${album.id}", album.name,
                         MediaMetadata.MEDIA_TYPE_ALBUM, album.artist,
                     )
+                }
+            }
+            parentId == "albums" -> {
+                client.getAlbumList(AlbumListType.ALPHABETICAL_BY_NAME, size = 50).map { album ->
+                    buildBrowsable(
+                        "album:${album.id}", album.name,
+                        MediaMetadata.MEDIA_TYPE_ALBUM, album.artist,
+                    )
+                }
+            }
+            parentId == "radio" -> {
+                client.getRadioStations().map { station ->
+                    val artUri = station.coverArt?.let {
+                        Uri.parse(client.coverArtURL("ra-${station.id}", size = 480))
+                    }
+                    MediaItem.Builder()
+                        .setMediaId("radio:${station.id}")
+                        .setUri(station.streamUrl)
+                        .setMediaMetadata(
+                            MediaMetadata.Builder()
+                                .setTitle(station.name)
+                                .setArtworkUri(artUri)
+                                .setIsBrowsable(false)
+                                .setIsPlayable(true)
+                                .setMediaType(MediaMetadata.MEDIA_TYPE_RADIO_STATION)
+                                .build()
+                        )
+                        .build()
                 }
             }
             else -> emptyList()

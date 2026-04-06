@@ -45,6 +45,8 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.LibraryMusic
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -109,6 +111,8 @@ fun LibraryScreen(
     onNavigateToFolders: () -> Unit = {},
     onNavigateToSettings: () -> Unit = {},
     onNavigateToDownloads: () -> Unit = {},
+    onNavigateToStats: () -> Unit = {},
+    onNavigateToBookmarks: () -> Unit = {},
 ) {
     val playbackManager: PlaybackManager = koinInject()
     val scope = rememberCoroutineScope()
@@ -225,6 +229,8 @@ fun LibraryScreen(
                 LibraryItemIds.FOLDERS to QuickAccessItem("Folders", Icons.Default.Folder, Color(0xFF795548), onNavigateToFolders),
                 LibraryItemIds.SONGS to QuickAccessItem("Songs", Icons.Default.MusicNote, Color(0xFF673AB7), onNavigateToSongs),
                 LibraryItemIds.DOWNLOADS to QuickAccessItem("Downloads", Icons.Default.DownloadForOffline, Color(0xFF607D8B), onNavigateToDownloads),
+                LibraryItemIds.STATS to QuickAccessItem("Stats", Icons.Default.TrendingUp, Color(0xFF3F51B5), onNavigateToStats),
+                LibraryItemIds.BOOKMARKS to QuickAccessItem("Bookmarks", Icons.Default.Bookmark, Color(0xFF00BCD4), onNavigateToBookmarks),
                 LibraryItemIds.PLAYLISTS to QuickAccessItem("Playlists", Icons.AutoMirrored.Filled.QueueMusic, Color(0xFF009688), onNavigateToPlaylists),
                 LibraryItemIds.RECENTLY_ADDED to QuickAccessItem("Recently Added", Icons.Default.AutoAwesome, Color(0xFFFFEB3B)) { onNavigateToAlbums("newest", "Recently Added") },
                 LibraryItemIds.GENERATIONS to QuickAccessItem("Generations", Icons.Default.CalendarMonth, Color(0xFFF44336), onNavigateToGenerations),

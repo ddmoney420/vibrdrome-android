@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Vibrdrome</string>
+    <string name="widget_description">Now Playing — shows current track with playback controls</string>
+    <string name="widget_compact_description">Now Playing — compact widget with album art and play/pause</string>
 </resources>

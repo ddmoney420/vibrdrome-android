@@ -45,6 +45,8 @@ object LibraryItemIds {
     const val FOLDERS = "folders"
     const val SONGS = "songs"
     const val DOWNLOADS = "downloads"
+    const val STATS = "stats"
+    const val BOOKMARKS = "bookmarks"
     const val PLAYLISTS = "playlists"
     const val RECENTLY_ADDED = "recently_added"
     const val GENERATIONS = "generations"
@@ -57,7 +59,7 @@ object LibraryItemIds {
     const val CAROUSEL_RANDOM = "carousel_random"
 
     val DEFAULT_ORDER = listOf(
-        GENRES, RADIO, ARTISTS, FAVORITES, ALBUMS, FOLDERS, SONGS, DOWNLOADS,
+        GENRES, RADIO, ARTISTS, FAVORITES, ALBUMS, FOLDERS, SONGS, DOWNLOADS, STATS, BOOKMARKS,
         PLAYLISTS, RECENTLY_ADDED, GENERATIONS, RECENTLY_PLAYED, RANDOM_MIX, RANDOM_ALBUM,
         CAROUSEL_RECENT, CAROUSEL_FREQUENT, CAROUSEL_RANDOM,
     )
@@ -73,6 +75,8 @@ object LibraryItemIds {
         FOLDERS -> "Folders"
         SONGS -> "Songs"
         DOWNLOADS -> "Downloads"
+        STATS -> "Stats"
+        BOOKMARKS -> "Bookmarks"
         PLAYLISTS -> "Playlists"
         RECENTLY_ADDED -> "Recently Added"
         GENERATIONS -> "Generations"

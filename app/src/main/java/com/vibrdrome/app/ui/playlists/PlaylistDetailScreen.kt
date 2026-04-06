@@ -14,7 +14,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import android.widget.Toast
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.launch
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Shuffle
 import androidx.compose.material3.Button
@@ -33,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,6 +86,22 @@ fun PlaylistDetailScreen(
                     }
                 },
                 actions = {
+                    // Share/unshare playlist (toggle public flag)
+                    val shareContext = LocalContext.current
+                    val shareScope = rememberCoroutineScope()
+                    IconButton(onClick = {
+                        shareScope.launch {
+                            try {
+                                val current = playlist?.isPublic ?: false
+                                client.updatePlaylist(playlistId, isPublic = !current)
+                                Toast.makeText(shareContext, if (!current) "Playlist shared" else "Playlist unshared", Toast.LENGTH_SHORT).show()
+                            } catch (_: Exception) {
+                                Toast.makeText(shareContext, "Share failed", Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }) {
+                        Icon(Icons.Default.Share, contentDescription = "Share")
+                    }
                     onEditPlaylist?.let { edit ->
                         IconButton(onClick = { edit(playlistId) }) {
                             Icon(Icons.Default.Edit, contentDescription = "Edit")

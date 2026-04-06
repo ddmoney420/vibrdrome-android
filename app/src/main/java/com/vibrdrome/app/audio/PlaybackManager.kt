@@ -18,11 +18,13 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.exoplayer.audio.AudioSink
 import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
+import com.vibrdrome.app.cast.CastManager
 import com.vibrdrome.app.network.Song
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import com.vibrdrome.app.network.SubsonicClient
 import com.vibrdrome.app.persistence.DownloadDao
+import com.vibrdrome.app.persistence.OfflineActionQueue
 import com.vibrdrome.app.persistence.PlaybackStateDao
 import com.vibrdrome.app.persistence.SavedPlaybackState
 import com.vibrdrome.app.ui.AppState
@@ -84,6 +86,27 @@ private data class QueueSongRef(
     }
 }
 
+/**
+ * ReplayGain application mode.
+ */
+data class ServerQueueInfo(
+    val songs: List<Song>,
+    val currentId: String?,
+    val positionMs: Long,
+    val changedBy: String?,
+)
+
+enum class ReplayGainMode {
+    /** ReplayGain disabled. */
+    OFF,
+    /** Always use track gain. */
+    TRACK,
+    /** Always use album gain. */
+    ALBUM,
+    /** Auto: album gain when playing an album in order, track gain when shuffled. */
+    AUTO,
+}
+
 class PlaybackManager(
     context: Context,
     private val appState: AppState,
@@ -91,6 +114,12 @@ class PlaybackManager(
     private val downloadDao: DownloadDao,
     val sleepTimer: SleepTimer,
     val eqCoefficientsStore: EQCoefficientsStore,
+    val castManager: CastManager,
+    private val listeningTracker: ListeningTracker,
+    private val offlineActionQueue: OfflineActionQueue,
+    val smartTransitions: SmartTransitions,
+    val adaptiveBitrate: AdaptiveBitrate,
+    private val preBufferManager: PreBufferManager,
 ) {
     private val appContext = context.applicationContext
     private val json = Json { ignoreUnknownKeys = true }
@@ -100,7 +129,24 @@ class PlaybackManager(
     val biquadProcessor = BiquadAudioProcessor(eqCoefficientsStore)
 
     @OptIn(UnstableApi::class)
-    val player: ExoPlayer = createPlayerWithEQ()
+    val localPlayer: ExoPlayer = createPlayerWithEQ()
+
+    /**
+     * The currently active player — either the local ExoPlayer or the CastPlayer.
+     * All playback operations go through this property.
+     */
+    var player: Player = localPlayer
+        private set
+
+    /** True when playback is routed to a Cast device. */
+    val isCasting: StateFlow<Boolean> = castManager.isCasting
+    val castDeviceName: StateFlow<String?> = castManager.castDeviceName
+
+    /** Callback for PlaybackService to swap the MediaSession player. */
+    var onPlayerSwapped: ((Player) -> Unit)? = null
+
+    /** Called on track transition — used by HapticEngine to reset beat detection. */
+    var onTrackChanged: (() -> Unit)? = null
 
     private val _queue = MutableStateFlow<List<Song>>(emptyList())
     val queue: StateFlow<List<Song>> = _queue.asStateFlow()
@@ -136,77 +182,103 @@ class PlaybackManager(
     val crossfadeEnabled: StateFlow<Boolean> = _crossfadeEnabled.asStateFlow()
 
     private var crossfadeDurationMs = prefs.getLong("crossfade_duration", 5000L)
-    private var crossfadeFactor = 1.0f
-    private var fadeInJob: Job? = null
+
+    // True dual-player crossfade engine
+    val crossfadeEngine = CrossfadeEngine(appContext, eqCoefficientsStore)
+
+    private val _crossfadeCurve = MutableStateFlow(
+        CrossfadeCurve.entries.getOrElse(prefs.getInt("crossfade_curve", 1)) { CrossfadeCurve.EQUAL_POWER }
+    )
+    val crossfadeCurve: StateFlow<CrossfadeCurve> = _crossfadeCurve.asStateFlow()
+
+    /** When true, crossfade only applies during shuffle; albums use gapless. */
+    private val _crossfadeOnlyOnShuffle = MutableStateFlow(prefs.getBoolean("crossfade_only_shuffle", false))
+    val crossfadeOnlyOnShuffle: StateFlow<Boolean> = _crossfadeOnlyOnShuffle.asStateFlow()
+
+    // Audio normalizer for tracks without ReplayGain
+    val audioNormalizer = AudioNormalizer(appContext)
 
     // Volume factors
     private var replayGainFactor = 1.0f
+    private var normalizationFactor = 1.0f
     private var sleepFadeFactor = 1.0f
+
+    private val _autoNormalizeEnabled = MutableStateFlow(prefs.getBoolean("auto_normalize", true))
+    val autoNormalizeEnabled: StateFlow<Boolean> = _autoNormalizeEnabled.asStateFlow()
+
+    // Queue sync
+    private val _queueSyncEnabled = MutableStateFlow(prefs.getBoolean("queue_sync_enabled", true))
+    val queueSyncEnabled: StateFlow<Boolean> = _queueSyncEnabled.asStateFlow()
+    private var lastQueueSyncTime = 0L
+    private var queueSyncJob: Job? = null
+
+    // ReplayGain settings
+    private val _replayGainMode = MutableStateFlow(
+        ReplayGainMode.entries.getOrElse(prefs.getInt("replay_gain_mode", 3)) { ReplayGainMode.AUTO }
+    )
+    val replayGainMode: StateFlow<ReplayGainMode> = _replayGainMode.asStateFlow()
+
+    private val _replayGainPreamp = MutableStateFlow(prefs.getFloat("replay_gain_preamp", 0f))
+    val replayGainPreamp: StateFlow<Float> = _replayGainPreamp.asStateFlow()
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var positionJob: Job? = null
     private var saveJob: Job? = null
     private var serviceStarted = false
 
+    private val playerListener = object : Player.Listener {
+        override fun onIsPlayingChanged(playing: Boolean) {
+            _isPlaying.value = playing
+            if (playing) {
+                startPositionTracking()
+                listeningTracker.onResumed()
+            } else {
+                stopPositionTracking()
+                listeningTracker.onPaused()
+            }
+            scheduleSave()
+        }
+
+        override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            updateCurrentSong()
+            updateReplayGain()
+            hasScrobbled = false
+            scheduleSave()
+            // Track the new song for listening stats
+            _currentSong.value?.let { listeningTracker.onTrackStarted(it) }
+            onTrackChanged?.invoke()
+        }
+
+        override fun onPlaybackStateChanged(state: Int) {
+            if (state == Player.STATE_READY) {
+                _durationMs.value = player.duration.coerceAtLeast(0)
+            }
+        }
+
+        override fun onRepeatModeChanged(mode: Int) {
+            _repeatMode.value = mode
+            scheduleSave()
+        }
+
+        override fun onShuffleModeEnabledChanged(enabled: Boolean) {
+            _shuffleEnabled.value = enabled
+            scheduleSave()
+        }
+
+        override fun onPlayerError(error: PlaybackException) {
+            appState.showError("Playback error — retrying...")
+            scope.launch {
+                delay(2000)
+                if (player.playbackState == Player.STATE_IDLE) {
+                    player.prepare()
+                    player.play()
+                }
+            }
+        }
+    }
+
     init {
-        player.addListener(object : Player.Listener {
-            override fun onIsPlayingChanged(playing: Boolean) {
-                _isPlaying.value = playing
-                if (playing) startPositionTracking() else stopPositionTracking()
-                scheduleSave()
-            }
-
-            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
-                updateCurrentSong()
-                updateReplayGain()
-                hasScrobbled = false
-                scheduleSave()
-                // Crossfade: fade in the new track
-                if (_crossfadeEnabled.value) {
-                    fadeInJob?.cancel()
-                    crossfadeFactor = 0f
-                    applyVolume()
-                    fadeInJob = scope.launch {
-                        val steps = (crossfadeDurationMs / 33).toInt().coerceAtLeast(1)
-                        for (i in 1..steps) {
-                            crossfadeFactor = i.toFloat() / steps
-                            applyVolume()
-                            delay(33)
-                        }
-                        crossfadeFactor = 1f
-                        applyVolume()
-                    }
-                }
-            }
-
-            override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_READY) {
-                    _durationMs.value = player.duration.coerceAtLeast(0)
-                }
-            }
-
-            override fun onRepeatModeChanged(mode: Int) {
-                _repeatMode.value = mode
-                scheduleSave()
-            }
-
-            override fun onShuffleModeEnabledChanged(enabled: Boolean) {
-                _shuffleEnabled.value = enabled
-                scheduleSave()
-            }
-
-            override fun onPlayerError(error: PlaybackException) {
-                appState.showError("Playback error — retrying...")
-                // Auto-retry on stream failure after 2 seconds
-                scope.launch {
-                    delay(2000)
-                    if (player.playbackState == Player.STATE_IDLE) {
-                        player.prepare()
-                        player.play()
-                    }
-                }
-            }
-        })
+        localPlayer.addListener(playerListener)
 
         // Sleep timer volume integration
         scope.launch {
@@ -222,28 +294,130 @@ class PlaybackManager(
         // Restore saved playback speed
         val savedSpeed = _playbackSpeed.value
         if (savedSpeed != 1.0f) {
-            player.playbackParameters = PlaybackParameters(savedSpeed)
+            localPlayer.playbackParameters = PlaybackParameters(savedSpeed)
         }
 
+        // Sync engine states from prefs
+        crossfadeEngine.enabled = _crossfadeEnabled.value
+        crossfadeEngine.curve = _crossfadeCurve.value
+        audioNormalizer.enabled = _autoNormalizeEnabled.value
+
+        // Cast session lifecycle
+        castManager.setSessionCallbacks(
+            onStarted = { switchToCastPlayer() },
+            onEnded = { switchToLocalPlayer() },
+            onError = { msg -> appState.showError(msg) },
+        )
+
         scope.launch { restoreQueue() }
+    }
+
+    // MARK: - Cast Player Swapping
+
+    private fun switchToCastPlayer() {
+        val castPlayer = castManager.getPlayer() ?: return
+        val wasPlaying = player.isPlaying
+        val currentQueue = _queue.value
+        val currentIndex = player.currentMediaItemIndex
+        val currentPosition = player.currentPosition
+
+        // Pause local player
+        localPlayer.pause()
+
+        // Attach listener to cast player
+        castPlayer.addListener(playerListener)
+
+        // Load queue into cast player using HTTP stream URLs (not local files)
+        if (currentQueue.isNotEmpty()) {
+            val client = appState.subsonicClient
+            val castItems = currentQueue.map { it.toHttpMediaItem(client, forCast = true) }
+            castPlayer.setMediaItems(castItems, currentIndex, currentPosition)
+            castPlayer.prepare()
+            if (wasPlaying) castPlayer.play()
+        }
+
+        // Remove listener from local player
+        localPlayer.removeListener(playerListener)
+
+        player = castPlayer
+        onPlayerSwapped?.invoke(castPlayer)
+    }
+
+    private fun switchToLocalPlayer() {
+        val castPlayer = castManager.getPlayer()
+        val wasPlaying = player.isPlaying
+        val currentIndex = player.currentMediaItemIndex
+        val currentPosition = player.currentPosition
+
+        // Remove listener from cast player
+        castPlayer?.removeListener(playerListener)
+
+        // Restore queue to local player
+        val currentQueue = _queue.value
+        if (currentQueue.isNotEmpty()) {
+            val client = appState.subsonicClient
+            scope.launch {
+                val localItems = currentQueue.map { it.toMediaItemResolved(client) }
+                localPlayer.setMediaItems(localItems, currentIndex, currentPosition)
+                localPlayer.prepare()
+                if (wasPlaying) localPlayer.play()
+            }
+        }
+
+        // Re-attach listener to local player
+        localPlayer.addListener(playerListener)
+
+        player = localPlayer
+        onPlayerSwapped?.invoke(localPlayer)
+        updateReplayGain()
+    }
+
+    /**
+     * Build a MediaItem that always uses the HTTP stream URL (never local file).
+     * Required for Cast since the Cast device can't access local files.
+     */
+    fun Song.toHttpMediaItem(client: SubsonicClient, forCast: Boolean = false): MediaItem {
+        val artUri = coverArt?.let { Uri.parse(client.coverArtURL(it, size = 480)) }
+        val quality = appState.getEffectiveStreamQuality()
+        // Cap Cast streams at 320kbps — raw FLAC (up to 2800kbps) causes buffering on Chromecast
+        val castBitRate = if (forCast) 320 else null
+        val effectiveBitRate = castBitRate ?: (if (quality > 0) quality else null)
+        val streamUri = client.streamURL(id, maxBitRate = effectiveBitRate)
+        return MediaItem.Builder()
+            .setMediaId(id)
+            .setUri(streamUri)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(title)
+                    .setArtist(artist)
+                    .setAlbumTitle(album)
+                    .setArtworkUri(artUri)
+                    .build()
+            )
+            .build()
     }
 
     fun release() {
         positionJob?.cancel()
         saveJob?.cancel()
+        listeningTracker.onStopped()
         scope.launch { saveQueueState() }
-        player.release()
+        crossfadeEngine.release()
+        castManager.release()
+        localPlayer.release()
     }
 
     // MARK: - Volume System
 
     fun setCrossfadeEnabled(enabled: Boolean) {
         _crossfadeEnabled.value = enabled
+        crossfadeEngine.enabled = enabled
         prefs.edit().putBoolean("crossfade_enabled", enabled).apply()
-        if (!enabled) {
-            fadeInJob?.cancel()
-            crossfadeFactor = 1.0f
-            applyVolume()
+        if (!enabled && player is ExoPlayer) {
+            crossfadeEngine.cancelCrossfade(
+                player as ExoPlayer,
+                (replayGainFactor * sleepFadeFactor).coerceIn(0f, 1f),
+            )
         }
     }
 
@@ -252,19 +426,191 @@ class PlaybackManager(
         prefs.edit().putLong("crossfade_duration", crossfadeDurationMs).apply()
     }
 
+    fun setCrossfadeCurve(curve: CrossfadeCurve) {
+        _crossfadeCurve.value = curve
+        crossfadeEngine.curve = curve
+        prefs.edit().putInt("crossfade_curve", curve.ordinal).apply()
+    }
+
+    fun setCrossfadeOnlyOnShuffle(enabled: Boolean) {
+        _crossfadeOnlyOnShuffle.value = enabled
+        prefs.edit().putBoolean("crossfade_only_shuffle", enabled).apply()
+    }
+
     private fun applyVolume() {
-        player.volume = (replayGainFactor * sleepFadeFactor * crossfadeFactor).coerceIn(0f, 1f)
+        // Volume factors only apply to local playback — CastPlayer volume is device-controlled
+        if (!castManager.isCasting.value) {
+            localPlayer.volume = (replayGainFactor * normalizationFactor * sleepFadeFactor).coerceIn(0f, 1f)
+        }
     }
 
     private fun updateReplayGain() {
         val song = _currentSong.value
         replayGainFactor = computeReplayGainFactor(song)
+        // Reset normalization for new track
+        val hasRg = song?.replayGain?.trackGain != null || song?.replayGain?.albumGain != null
+        audioNormalizer.onTrackChanged(song?.id ?: "", hasRg)
+        normalizationFactor = audioNormalizer.gainFactor
         applyVolume()
     }
 
     private fun computeReplayGainFactor(song: Song?): Float {
-        val gain = song?.replayGain?.trackGain ?: return 1.0f
-        return 10f.pow(gain.toFloat() / 20f).coerceIn(0.1f, 4f)
+        val rg = song?.replayGain ?: return 1.0f
+        val mode = _replayGainMode.value
+        if (mode == ReplayGainMode.OFF) return 1.0f
+
+        val gain: Double? = when (mode) {
+            ReplayGainMode.TRACK -> rg.trackGain
+            ReplayGainMode.ALBUM -> rg.albumGain ?: rg.trackGain
+            ReplayGainMode.AUTO -> {
+                // Use album gain when playing an album in order, track gain when shuffled
+                if (_shuffleEnabled.value) {
+                    rg.trackGain
+                } else if (isPlayingAlbumInOrder()) {
+                    rg.albumGain ?: rg.trackGain
+                } else {
+                    rg.trackGain
+                }
+            }
+            ReplayGainMode.OFF -> null
+        }
+
+        if (gain == null) return 1.0f
+
+        val preamp = _replayGainPreamp.value
+        val totalGain = gain.toFloat() + preamp
+
+        // Apply gain, respect peak to prevent clipping
+        val factor = 10f.pow(totalGain / 20f)
+        val peak = when (mode) {
+            ReplayGainMode.ALBUM -> rg.albumPeak ?: rg.trackPeak
+            ReplayGainMode.AUTO -> if (!_shuffleEnabled.value && isPlayingAlbumInOrder()) {
+                rg.albumPeak ?: rg.trackPeak
+            } else {
+                rg.trackPeak
+            }
+            else -> rg.trackPeak
+        }
+        val maxFactor = if (peak != null && peak > 0) (1.0 / peak).toFloat() else 4f
+        return factor.coerceIn(0.1f, maxFactor.coerceAtMost(4f))
+    }
+
+    /** Check if the current queue represents an album played in track order. */
+    private fun isPlayingAlbumInOrder(): Boolean {
+        val q = _queue.value
+        if (q.size < 2) return false
+        val albumId = q.firstOrNull()?.albumId ?: return false
+        return q.all { it.albumId == albumId }
+    }
+
+    fun setReplayGainMode(mode: ReplayGainMode) {
+        _replayGainMode.value = mode
+        prefs.edit().putInt("replay_gain_mode", mode.ordinal).apply()
+        updateReplayGain()
+    }
+
+    fun setAutoNormalize(enabled: Boolean) {
+        _autoNormalizeEnabled.value = enabled
+        audioNormalizer.enabled = enabled
+        prefs.edit().putBoolean("auto_normalize", enabled).apply()
+        if (!enabled) {
+            normalizationFactor = 1.0f
+            applyVolume()
+        }
+    }
+
+    /**
+     * Feed visualizer waveform data to the audio normalizer.
+     * Call from VisualizerScreen's data capture callback.
+     */
+    fun feedNormalizerData(waveform: ByteArray) {
+        if (_autoNormalizeEnabled.value && !castManager.isCasting.value) {
+            val newFactor = audioNormalizer.feedWaveform(waveform)
+            if (newFactor != normalizationFactor) {
+                normalizationFactor = newFactor
+                applyVolume()
+            }
+        }
+    }
+
+    // MARK: - Queue Sync
+
+    fun setQueueSyncEnabled(enabled: Boolean) {
+        _queueSyncEnabled.value = enabled
+        prefs.edit().putBoolean("queue_sync_enabled", enabled).apply()
+    }
+
+    /**
+     * Save current queue to the Navidrome server for cross-device pickup.
+     * Debounced to max once every 30 seconds.
+     */
+    private fun scheduleQueueSync() {
+        if (!_queueSyncEnabled.value) return
+        val now = System.currentTimeMillis()
+        if (now - lastQueueSyncTime < 30_000) return
+
+        queueSyncJob?.cancel()
+        queueSyncJob = scope.launch {
+            delay(5000) // Debounce 5 seconds
+            try {
+                val songs = _queue.value
+                if (songs.isEmpty()) return@launch
+                val ids = songs.map { it.id }
+                val currentId = _currentSong.value?.id
+                val positionMs = player.currentPosition.toInt()
+                appState.subsonicClient.savePlayQueue(ids, currentId, positionMs)
+                lastQueueSyncTime = System.currentTimeMillis()
+            } catch (_: Exception) {
+                // Silently fail — queue sync is best-effort
+            }
+        }
+    }
+
+    /**
+     * Check server for a play queue from another device.
+     * Returns the server queue if it differs from local, null otherwise.
+     */
+    suspend fun checkServerQueue(): ServerQueueInfo? {
+        if (!_queueSyncEnabled.value) return null
+        return try {
+            val pq = appState.subsonicClient.getPlayQueue() ?: return null
+            val entries = pq.entry ?: return null
+            if (entries.isEmpty()) return null
+
+            // Check if the server queue is different from local
+            val localIds = _queue.value.map { it.id }
+            val serverIds = entries.map { it.id }
+            if (localIds == serverIds && _currentSong.value?.id == pq.current) return null
+
+            ServerQueueInfo(
+                songs = entries,
+                currentId = pq.current,
+                positionMs = pq.position?.toLong() ?: 0,
+                changedBy = pq.changedBy,
+            )
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Resume playback from a server queue (from another device).
+     */
+    fun resumeFromServerQueue(info: ServerQueueInfo) {
+        val startIndex = info.currentId?.let { id ->
+            info.songs.indexOfFirst { it.id == id }.takeIf { it >= 0 }
+        } ?: 0
+
+        play(info.songs, startIndex)
+        if (info.positionMs > 0) {
+            seekTo(info.positionMs)
+        }
+    }
+
+    fun setReplayGainPreamp(db: Float) {
+        _replayGainPreamp.value = db.coerceIn(-6f, 6f)
+        prefs.edit().putFloat("replay_gain_preamp", _replayGainPreamp.value).apply()
+        updateReplayGain()
     }
 
     // MARK: - Playback
@@ -321,10 +667,12 @@ class PlaybackManager(
     }
 
     fun next() {
+        cancelActiveCrossfade()
         if (player.hasNextMediaItem()) player.seekToNextMediaItem()
     }
 
     fun previous() {
+        cancelActiveCrossfade()
         if (player.currentPosition > 3000) {
             player.seekTo(0)
         } else if (player.hasPreviousMediaItem()) {
@@ -334,9 +682,24 @@ class PlaybackManager(
         }
     }
 
+    private var seekCooldownUntil = 0L
+
     fun seekTo(positionMs: Long) {
+        cancelActiveCrossfade()
         player.seekTo(positionMs)
         _positionMs.value = positionMs
+        // Prevent crossfade from triggering for 2 seconds after a seek
+        seekCooldownUntil = System.currentTimeMillis() + 2000
+    }
+
+    private fun cancelActiveCrossfade() {
+        if (crossfadeEngine.isCrossfading && player is ExoPlayer) {
+            crossfadeEngine.cancelCrossfade(
+                player as ExoPlayer,
+                (replayGainFactor * sleepFadeFactor).coerceIn(0f, 1f),
+            )
+        }
+        preBufferManager.cancel()
     }
 
     fun toggleRepeatMode() {
@@ -352,9 +715,12 @@ class PlaybackManager(
     }
 
     fun setPlaybackSpeed(speed: Float) {
-        player.playbackParameters = PlaybackParameters(speed)
         _playbackSpeed.value = speed
         prefs.edit().putFloat("playback_speed", speed).apply()
+        // Playback speed only works on local player — CastPlayer doesn't support it
+        if (!castManager.isCasting.value) {
+            localPlayer.playbackParameters = PlaybackParameters(speed)
+        }
     }
 
     // MARK: - Radio
@@ -403,19 +769,41 @@ class PlaybackManager(
     // MARK: - Scrobbling
 
     private var hasScrobbled = false
+    private var lastScrobbledSongId: String? = null
+
+    private val _scrobbleEnabled = MutableStateFlow(prefs.getBoolean("scrobble_enabled", true))
+    val scrobbleEnabled: StateFlow<Boolean> = _scrobbleEnabled.asStateFlow()
+
+    private val _lastScrobbleTime = MutableStateFlow(0L)
+    val lastScrobbleTime: StateFlow<Long> = _lastScrobbleTime.asStateFlow()
+
+    fun setScrobbleEnabled(enabled: Boolean) {
+        _scrobbleEnabled.value = enabled
+        prefs.edit().putBoolean("scrobble_enabled", enabled).apply()
+    }
 
     private fun checkScrobble() {
+        if (!_scrobbleEnabled.value) return
         if (hasScrobbled) return
         val song = _currentSong.value ?: return
+        // Duplicate prevention: don't re-scrobble same song if user seeked back
+        if (song.id == lastScrobbledSongId) return
         val pos = _positionMs.value
         val dur = song.duration?.let { it * 1000L } ?: _durationMs.value
         val threshold = minOf(30_000L, dur / 2)
         if (pos >= threshold && threshold > 0) {
             hasScrobbled = true
+            lastScrobbledSongId = song.id
             scope.launch {
                 try {
                     appState.subsonicClient.scrobble(song.id)
-                } catch (_: Throwable) {}
+                    _lastScrobbleTime.value = System.currentTimeMillis()
+                } catch (_: Throwable) {
+                    // Enqueue for offline retry instead of silently dropping
+                    try {
+                        offlineActionQueue.enqueue("scrobble", mapOf("id" to song.id))
+                    } catch (_: Throwable) {}
+                }
             }
         }
     }
@@ -473,17 +861,79 @@ class PlaybackManager(
                 val dur = player.duration
                 if (dur > 0) _durationMs.value = dur
                 checkScrobble()
-                // Crossfade: fade out as track approaches end
-                if (_crossfadeEnabled.value && dur > 0) {
+
+                // Smart transitions + true dual-player crossfade
+                val pastCooldown = System.currentTimeMillis() > seekCooldownUntil
+                if (dur > 0 && player is ExoPlayer && !castManager.isCasting.value && pastCooldown) {
                     val remaining = dur - _positionMs.value
-                    if (remaining in 1..crossfadeDurationMs && remaining < dur / 2) {
-                        crossfadeFactor = remaining.toFloat() / crossfadeDurationMs
-                        applyVolume()
+                    val nextIndex = player.currentMediaItemIndex + 1
+                    val nextSong = _queue.value.getOrNull(nextIndex)
+                    val currentSong = _currentSong.value
+
+                    // Check smart transitions first
+                    val smartDecision = smartTransitions.decideTransition(
+                        currentSong = currentSong,
+                        nextSong = nextSong,
+                        isShuffled = _shuffleEnabled.value,
+                        queueAlbumId = if (isPlayingAlbumInOrder()) currentSong?.albumId else null,
+                    )
+
+                    val shouldXfade = when {
+                        smartDecision != null -> smartDecision.type == TransitionType.CROSSFADE
+                        else -> shouldCrossfade()
+                    }
+                    val xfadeDuration = smartDecision?.crossfadeDurationMs ?: crossfadeDurationMs
+
+                    if (shouldXfade) {
+                        val nextItem = buildNextCrossfadeItem()
+                        crossfadeEngine.checkCrossfade(
+                            primaryPlayer = player as ExoPlayer,
+                            nextMediaItem = nextItem,
+                            remainingMs = remaining,
+                            crossfadeDurationMs = xfadeDuration,
+                            scope = scope,
+                            baseVolume = (replayGainFactor * sleepFadeFactor).coerceIn(0f, 1f),
+                            onCrossfadeComplete = {
+                                // Don't call seekToNextMediaItem — ExoPlayer will
+                                // naturally advance when the current track ends.
+                                // The overlay already played the next track's audio.
+                            },
+                        )
+                    }
+
+                    // Adaptive bitrate: check for upgrade on track boundary
+                    adaptiveBitrate.checkUpgrade()
+
+                    // Predictive pre-buffering at 80%
+                    val progress = if (dur > 0) _positionMs.value.toFloat() / dur else 0f
+                    if (nextSong != null) {
+                        val client = appState.subsonicClient
+                        val nextUrl = client.streamURL(nextSong.id)
+                        preBufferManager.checkPreBuffer(progress, nextSong.id, nextUrl)
                     }
                 }
+
                 delay(250)
             }
         }
+    }
+
+    /** Whether crossfade should be active right now. */
+    private fun shouldCrossfade(): Boolean {
+        if (!_crossfadeEnabled.value) return false
+        if (castManager.isCasting.value) return false
+        if (_crossfadeOnlyOnShuffle.value && !_shuffleEnabled.value) return false
+        // Disable crossfade in repeat-one mode (gapless loop instead)
+        if (_repeatMode.value == Player.REPEAT_MODE_ONE) return false
+        return true
+    }
+
+    /** Build the next track's MediaItem for the crossfade overlay player (always HTTP, no local file). */
+    private fun buildNextCrossfadeItem(): MediaItem? {
+        val nextIndex = player.currentMediaItemIndex + 1
+        val nextSong = _queue.value.getOrNull(nextIndex) ?: return null
+        val client = appState.subsonicClient
+        return nextSong.toHttpMediaItem(client) // Reuse — always HTTP stream URL
     }
 
     private fun stopPositionTracking() {
@@ -583,6 +1033,7 @@ class PlaybackManager(
             delay(1000)
             saveQueueState()
         }
+        scheduleQueueSync()
     }
 
     private suspend fun saveQueueState() {

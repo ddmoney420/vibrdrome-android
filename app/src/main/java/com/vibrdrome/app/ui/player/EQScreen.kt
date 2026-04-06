@@ -1,6 +1,7 @@
 package com.vibrdrome.app.ui.player
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -12,13 +13,20 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Headphones
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -31,7 +39,11 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.CornerRadius
@@ -55,6 +67,29 @@ fun EQScreen(
     val gains by eqEngine.gains.collectAsState()
     val isEnabled by eqEngine.isEnabled.collectAsState()
     val presetName by eqEngine.currentPresetName.collectAsState()
+    val allPresetsList by eqEngine.allPresets.collectAsState()
+    val deviceName by eqEngine.currentDeviceName.collectAsState()
+    val context = LocalContext.current
+
+    // File picker for AutoEQ / APO import
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let {
+            try {
+                val content = context.contentResolver.openInputStream(it)?.bufferedReader()?.readText() ?: return@let
+                val fileName = uri.lastPathSegment?.substringAfterLast("/")?.substringBeforeLast(".") ?: "Imported"
+                val result = eqEngine.importProfile(content, fileName)
+                if (result != null) {
+                    Toast.makeText(context, "Imported: $result", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(context, "Could not parse EQ profile", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Toast.makeText(context, "Import failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -66,6 +101,16 @@ fun EQScreen(
                     }
                 },
                 actions = {
+                    // Import AutoEQ / APO profile
+                    IconButton(onClick = {
+                        importLauncher.launch(arrayOf("*/*"))
+                    }) {
+                        Icon(Icons.Default.FileUpload, contentDescription = "Import EQ Profile")
+                    }
+                    // Save current as custom preset
+                    IconButton(onClick = { eqEngine.saveCustomPreset(presetName.ifEmpty { "Custom" }) }) {
+                        Icon(Icons.Default.Save, contentDescription = "Save Preset")
+                    }
                     Text(
                         if (isEnabled) "ON" else "OFF",
                         style = MaterialTheme.typography.labelMedium,
@@ -86,20 +131,45 @@ fun EQScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            // Current preset
-            Text(
-                text = presetName,
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            )
+            // Current preset + device
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = presetName,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+                deviceName?.let { name ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            Icons.Default.Headphones,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            text = name,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.clickable {
+                                eqEngine.saveDeviceProfile()
+                                Toast.makeText(context, "Saved EQ for $name", Toast.LENGTH_SHORT).show()
+                            },
+                        )
+                    }
+                }
+            }
 
             // Preset chips
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(EQPresets.allPresets) { preset ->
+                items(allPresetsList) { preset ->
                     FilterChip(
                         selected = presetName == preset.name,
                         onClick = { eqEngine.applyPreset(preset) },

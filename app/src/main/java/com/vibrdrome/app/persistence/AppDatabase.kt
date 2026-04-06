@@ -40,16 +40,38 @@ interface PlaybackStateDao {
 }
 
 @Database(
-    entities = [SavedPlaybackState::class, DownloadedSong::class, PendingAction::class],
-    version = 3,
+    entities = [SavedPlaybackState::class, DownloadedSong::class, PendingAction::class, ListeningSession::class],
+    version = 4,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun playbackStateDao(): PlaybackStateDao
     abstract fun downloadDao(): DownloadDao
     abstract fun pendingActionDao(): PendingActionDao
+    abstract fun listeningStatsDao(): ListeningStatsDao
 
     companion object {
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS listening_sessions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        song_id TEXT NOT NULL,
+                        artist_name TEXT,
+                        album_name TEXT,
+                        genre TEXT,
+                        started_at INTEGER NOT NULL,
+                        duration_ms INTEGER NOT NULL DEFAULT 0,
+                        track_duration_ms INTEGER NOT NULL DEFAULT 0,
+                        completed INTEGER NOT NULL DEFAULT 0,
+                        skipped INTEGER NOT NULL DEFAULT 0
+                    )
+                """)
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_started ON listening_sessions(started_at)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_listening_song ON listening_sessions(song_id)")
+            }
+        }
+
         val MIGRATION_2_3 = object : Migration(2, 3) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("""

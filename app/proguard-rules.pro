@@ -46,6 +46,11 @@
 # Media3 / ExoPlayer
 -dontwarn androidx.media3.**
 
+# Cast SDK
+-keep class com.vibrdrome.app.cast.CastOptionsProvider { *; }
+-keep class com.google.android.gms.cast.** { *; }
+-dontwarn com.google.android.gms.cast.**
+
 # App models (serializable data classes)
 -keep class com.vibrdrome.app.network.** { *; }
 -keep class com.vibrdrome.app.persistence.** { *; }

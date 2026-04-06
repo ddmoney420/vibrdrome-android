@@ -4,6 +4,9 @@ kotlin = "2.1.10"
 ksp = "2.1.10-1.0.31"
 compose-bom = "2025.01.01"
 media3 = "1.5.1"
+play-services-cast = "22.0.0"
+mediarouter = "1.7.0"
+# glance removed — using RemoteViews widget instead
 ktor = "3.0.3"
 coil = "2.7.0"
 room = "2.7.0"
@@ -40,6 +43,10 @@ androidx-navigation-compose = { group = "androidx.navigation", name = "navigatio
 androidx-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "media3" }
 androidx-media3-session = { group = "androidx.media3", name = "media3-session", version.ref = "media3" }
 androidx-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "media3" }
+androidx-media3-cast = { group = "androidx.media3", name = "media3-cast", version.ref = "media3" }
+play-services-cast-framework = { group = "com.google.android.gms", name = "play-services-cast-framework", version.ref = "play-services-cast" }
+androidx-mediarouter = { group = "androidx.mediarouter", name = "mediarouter", version.ref = "mediarouter" }
+# Glance dependencies removed — using RemoteViews widget
 
 # Networking (Ktor)
 ktor-client-android = { group = "io.ktor", name = "ktor-client-android", version.ref = "ktor" }

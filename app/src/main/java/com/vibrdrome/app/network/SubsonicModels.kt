@@ -32,6 +32,7 @@ data class SubsonicResponseBody(
     val randomSongs: RandomSongsResponse? = null,
     val internetRadioStations: InternetRadioStationsWrapper? = null,
     val lyricsList: LyricsList? = null,
+    val nowPlaying: NowPlayingWrapper? = null,
     val playQueue: PlayQueue? = null,
     val bookmarks: BookmarksWrapper? = null,
     val similarSongs2: SimilarSongs2Response? = null,
@@ -231,6 +232,29 @@ data class StructuredLyrics(
 data class LyricLine(
     val start: Int? = null,
     val value: String,
+)
+
+// MARK: - Play Queue
+
+// MARK: - Now Playing
+
+@Serializable
+data class NowPlayingWrapper(
+    val entry: List<NowPlayingEntry>? = null,
+)
+
+@Serializable
+data class NowPlayingEntry(
+    val username: String,
+    val minutesAgo: Int? = null,
+    val playerId: Int? = null,
+    val playerName: String? = null,
+    // Song fields (NowPlayingEntry extends Song in Subsonic API)
+    val id: String? = null,
+    val title: String? = null,
+    val artist: String? = null,
+    val album: String? = null,
+    val coverArt: String? = null,
 )
 
 // MARK: - Play Queue

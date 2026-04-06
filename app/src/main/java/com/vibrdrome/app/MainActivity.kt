@@ -35,13 +35,17 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
+import androidx.compose.runtime.LaunchedEffect
 import com.vibrdrome.app.audio.PlaybackManager
+import com.vibrdrome.app.audio.ServerQueueInfo
+import com.vibrdrome.app.cast.CastManager
 import com.vibrdrome.app.network.AlbumListType
 import com.vibrdrome.app.ui.AppState
 import com.vibrdrome.app.ui.library.AlbumDetailScreen
 import com.vibrdrome.app.ui.library.AlbumsScreen
 import com.vibrdrome.app.ui.library.ArtistDetailScreen
 import com.vibrdrome.app.ui.library.ArtistsScreen
+import com.vibrdrome.app.ui.library.BookmarksScreen
 import com.vibrdrome.app.ui.library.DownloadsScreen
 import com.vibrdrome.app.ui.library.FavoritesScreen
 import com.vibrdrome.app.ui.library.FolderBrowserScreen
@@ -65,6 +69,7 @@ import com.vibrdrome.app.ui.radio.AddStationScreen
 import com.vibrdrome.app.ui.radio.RadioScreen
 import com.vibrdrome.app.ui.radio.StationSearchScreen
 import com.vibrdrome.app.ui.search.SearchScreen
+import com.vibrdrome.app.ui.stats.StatsScreen
 import com.vibrdrome.app.ui.settings.ServerConfigScreen
 import com.vibrdrome.app.ui.settings.ServerManagerScreen
 import com.vibrdrome.app.ui.settings.SettingsScreen
@@ -74,9 +79,12 @@ import org.koin.compose.koinInject
 
 class MainActivity : ComponentActivity() {
     private val appState: AppState by inject()
+    private val castManager: CastManager by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Cast SDK requires Activity context for initialization
+        castManager.initialize(this)
         enableEdgeToEdge()
         setContent {
             val themeMode by appState.themeMode.collectAsState()
@@ -105,6 +113,38 @@ private fun VibrdromeNavHost(appState: AppState) {
 
     val showMiniPlayer = currentSong != null &&
         navBackStackEntry?.destination?.route?.contains("NowPlayingRoute") != true
+
+    // Queue sync: check for server queue on launch (delay to let local restore finish)
+    var serverQueueInfo by remember { mutableStateOf<ServerQueueInfo?>(null) }
+    var queueCheckDone by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
+    LaunchedEffect(isConfigured) {
+        if (isConfigured && !queueCheckDone) {
+            kotlinx.coroutines.delay(3000) // Wait for local queue restore
+            queueCheckDone = true
+            serverQueueInfo = playbackManager.checkServerQueue()
+        }
+    }
+    if (serverQueueInfo != null) {
+        val info = serverQueueInfo!!
+        val songTitle = info.songs.find { it.id == info.currentId }?.title ?: "unknown"
+        AlertDialog(
+            onDismissRequest = { serverQueueInfo = null },
+            title = { Text("Resume playback?") },
+            text = {
+                Text("Resume \"$songTitle\"${info.changedBy?.let { " from $it" } ?: ""}?")
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    playbackManager.resumeFromServerQueue(info)
+                    serverQueueInfo = null
+                }) { Text("Resume") }
+            },
+            dismissButton = {
+                TextButton(onClick = { serverQueueInfo = null }) { Text("Dismiss") }
+            },
+        )
+    }
 
     // Prevent back press from going past the home screen to a blank state
     val activity = androidx.compose.ui.platform.LocalContext.current as? ComponentActivity
@@ -206,6 +246,8 @@ private fun VibrdromeNavHost(appState: AppState) {
                     onNavigateToFolders = { navController.navigate(FolderBrowserRoute) },
                     onNavigateToSettings = { navController.navigate(SettingsRoute) },
                     onNavigateToDownloads = { navController.navigate(DownloadsRoute) },
+                    onNavigateToStats = { navController.navigate(StatsRoute) },
+                    onNavigateToBookmarks = { navController.navigate(BookmarksRoute) },
                 )
             }
 
@@ -293,6 +335,15 @@ private fun VibrdromeNavHost(appState: AppState) {
             }
             composable<DownloadsRoute> {
                 DownloadsScreen(onNavigateBack = safeBack)
+            }
+            composable<StatsRoute> {
+                StatsScreen(onNavigateBack = safeBack)
+            }
+            composable<BookmarksRoute> {
+                BookmarksScreen(
+                    client = appState.subsonicClient,
+                    onNavigateBack = safeBack,
+                )
             }
 
             // Playlists

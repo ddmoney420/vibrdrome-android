@@ -101,4 +101,70 @@ class DownloadManager(
     }
 
     suspend fun totalSize(): Long = dao.totalSize() ?: 0
+
+    // MARK: - Batch Downloads
+
+    private val _batchProgress = MutableStateFlow<BatchDownloadProgress?>(null)
+    val batchProgress: StateFlow<BatchDownloadProgress?> = _batchProgress.asStateFlow()
+
+    /**
+     * Download a list of songs (e.g., an album or playlist).
+     * Skips already-downloaded songs.
+     */
+    fun downloadBatch(songs: List<Song>, label: String) {
+        scope.launch {
+            val toDownload = songs.filter { dao.getBySongId(it.id) == null }
+            if (toDownload.isEmpty()) return@launch
+
+            _batchProgress.value = BatchDownloadProgress(label, 0, toDownload.size)
+
+            toDownload.forEachIndexed { index, song ->
+                _batchProgress.value = BatchDownloadProgress(label, index, toDownload.size)
+                // Reuse single-song download logic but wait for completion
+                downloadSongSync(song)
+            }
+
+            _batchProgress.value = BatchDownloadProgress(label, toDownload.size, toDownload.size)
+            kotlinx.coroutines.delay(2000) // Show completion briefly
+            _batchProgress.value = null
+        }
+    }
+
+    private suspend fun downloadSongSync(song: Song) {
+        val file = File(downloadDir, "${song.id}.${song.suffix ?: "mp3"}")
+        try {
+            val downloadUrl = appState.subsonicClient.downloadURL(song.id)
+            httpClient.prepareGet(downloadUrl).execute { response ->
+                val channel = response.bodyAsChannel()
+                val buffer = ByteArray(8192)
+                file.outputStream().use { output ->
+                    while (!channel.isClosedForRead) {
+                        val read = channel.readAvailable(buffer)
+                        if (read <= 0) continue
+                        output.write(buffer, 0, read)
+                    }
+                }
+            }
+            dao.insert(
+                DownloadedSong(
+                    songId = song.id,
+                    filePath = file.absolutePath,
+                    fileSize = file.length(),
+                    title = song.title,
+                    artist = song.artist,
+                    album = song.album,
+                    coverArt = song.coverArt,
+                    downloadedAt = System.currentTimeMillis(),
+                )
+            )
+        } catch (_: Exception) {
+            file.delete()
+        }
+    }
 }
+
+data class BatchDownloadProgress(
+    val label: String,
+    val completed: Int,
+    val total: Int,
+)

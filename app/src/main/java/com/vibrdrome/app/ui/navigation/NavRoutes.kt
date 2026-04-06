@@ -94,3 +94,9 @@ data class PlaylistEditorRoute(val playlistId: String? = null)
 
 @Serializable
 data object SmartPlaylistRoute
+
+@Serializable
+data object StatsRoute
+
+@Serializable
+data object BookmarksRoute
