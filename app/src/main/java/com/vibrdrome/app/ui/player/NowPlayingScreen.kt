@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.Cast
 import androidx.compose.material.icons.filled.CastConnected
+import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Pause
@@ -63,8 +64,7 @@ import kotlinx.coroutines.launch
 import androidx.media3.common.Player
 // MediaRouteButton removed — incompatible with Compose themes on some devices
 import com.vibrdrome.app.audio.AdaptiveBitrate
-import com.vibrdrome.app.audio.HapticEngine
-import com.vibrdrome.app.audio.ImmersiveMode
+import com.vibrdrome.app.audio.JukeboxManager
 import com.vibrdrome.app.audio.PlaybackManager
 import com.vibrdrome.app.audio.ReplayGainMode
 import org.koin.compose.koinInject
@@ -95,6 +95,9 @@ fun NowPlayingScreen(
     val isCasting by playbackManager.isCasting.collectAsState()
     val castDeviceName by playbackManager.castDeviceName.collectAsState()
     val activityContext = LocalContext.current
+    val jukeboxManager: JukeboxManager = koinInject()
+    val isJukebox by jukeboxManager.enabled.collectAsState()
+    val jukeboxGain by jukeboxManager.gain.collectAsState()
 
     val song = currentSong
     if (song == null) {
@@ -217,6 +220,28 @@ fun NowPlayingScreen(
                         text = "Casting to ${castDeviceName ?: "device"}",
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+
+            // Jukebox indicator
+            if (isJukebox) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        Icons.Default.Speaker,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.tertiary,
+                    )
+                    Spacer(Modifier.size(4.dp))
+                    Text(
+                        text = "Playing on server",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.tertiary,
                     )
                 }
             }
@@ -349,7 +374,7 @@ fun NowPlayingScreen(
                         else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                IconButton(onClick = { playbackManager.previous() }) {
+                IconButton(onClick = { if (isJukebox) jukeboxManager.previous() else playbackManager.previous() }) {
                     Icon(
                         Icons.Default.SkipPrevious,
                         contentDescription = "Previous",
@@ -357,7 +382,14 @@ fun NowPlayingScreen(
                     )
                 }
                 FilledIconButton(
-                    onClick = { playbackManager.togglePlayPause() },
+                    onClick = {
+                        if (isJukebox) {
+                            val playing = jukeboxManager.status.value?.playing ?: false
+                            if (playing) jukeboxManager.stop() else jukeboxManager.play()
+                        } else {
+                            playbackManager.togglePlayPause()
+                        }
+                    },
                     modifier = Modifier.size(64.dp),
                 ) {
                     Icon(
@@ -366,7 +398,7 @@ fun NowPlayingScreen(
                         modifier = Modifier.size(32.dp),
                     )
                 }
-                IconButton(onClick = { playbackManager.next() }) {
+                IconButton(onClick = { if (isJukebox) jukeboxManager.next() else playbackManager.next() }) {
                     Icon(
                         Icons.Default.SkipNext,
                         contentDescription = "Next",

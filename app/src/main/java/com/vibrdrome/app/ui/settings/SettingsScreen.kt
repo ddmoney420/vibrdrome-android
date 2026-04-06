@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.SignalCellularAlt
+import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Vibration
@@ -50,6 +51,7 @@ import com.vibrdrome.app.audio.EQEngine
 import com.vibrdrome.app.audio.HapticEngine
 import com.vibrdrome.app.audio.HapticIntensity
 import com.vibrdrome.app.audio.ImmersiveMode
+import com.vibrdrome.app.audio.JukeboxManager
 import com.vibrdrome.app.audio.AdaptiveBitrate
 import com.vibrdrome.app.audio.PlaybackManager
 import com.vibrdrome.app.audio.ReplayGainMode
@@ -74,6 +76,7 @@ fun SettingsScreen(
     val immersiveMode: ImmersiveMode = koinInject()
     val smartTransitions: SmartTransitions = koinInject()
     val adaptiveBitrate: AdaptiveBitrate = koinInject()
+    val jukeboxManager: JukeboxManager = koinInject()
     var cacheSizeMb by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(Unit) {
@@ -90,6 +93,7 @@ fun SettingsScreen(
     val replayGainMode by playbackManager.replayGainMode.collectAsState()
     val queueSyncEnabled by playbackManager.queueSyncEnabled.collectAsState()
     val scrobbleEnabled by playbackManager.scrobbleEnabled.collectAsState()
+    val jukeboxEnabled by jukeboxManager.enabled.collectAsState()
     val smartTransitionsEnabled by smartTransitions.enabled.collectAsState()
     val adaptiveCellular by adaptiveBitrate.enabledOnCellular.collectAsState()
     val adaptiveWifi by adaptiveBitrate.enabledOnWifi.collectAsState()
@@ -167,6 +171,23 @@ fun SettingsScreen(
                     androidx.compose.material3.Switch(
                         checked = crossfadeEnabled,
                         onCheckedChange = { playbackManager.setCrossfadeEnabled(it) },
+                    )
+                },
+            )
+            ListItem(
+                headlineContent = { Text("Jukebox Mode") },
+                supportingContent = { Text(if (jukeboxEnabled) "Playing on server" else "Play through server speakers") },
+                leadingContent = { Icon(Icons.Default.Speaker, contentDescription = null) },
+                trailingContent = {
+                    androidx.compose.material3.Switch(
+                        checked = jukeboxEnabled,
+                        onCheckedChange = {
+                            if (it) {
+                                jukeboxManager.enable { playbackManager.player.pause() }
+                            } else {
+                                jukeboxManager.disable()
+                            }
+                        },
                     )
                 },
             )

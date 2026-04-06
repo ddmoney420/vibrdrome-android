@@ -54,6 +54,7 @@ class SubsonicClient(
             is SubsonicEndpoint.CreatePlaylist -> allParams.addAll(endpoint.songIdParams)
             is SubsonicEndpoint.UpdatePlaylist -> allParams.addAll(endpoint.extraParams)
             is SubsonicEndpoint.SavePlayQueue -> allParams.addAll(endpoint.idParams)
+            is SubsonicEndpoint.JukeboxControl -> allParams.addAll(endpoint.idParams)
             else -> {}
         }
         val query = allParams.joinToString("&") { (k, v) ->
@@ -330,6 +331,54 @@ class SubsonicClient(
 
     suspend fun deleteRadioStation(id: String) {
         performAction(SubsonicEndpoint.DeleteInternetRadioStation(id))
+    }
+
+    // MARK: - Jukebox
+
+    suspend fun jukeboxGet(): JukeboxPlaylist? {
+        val body = request(SubsonicEndpoint.JukeboxControl(action = "get"))
+        return body.jukeboxPlaylist
+    }
+
+    suspend fun jukeboxStatus(): JukeboxStatus? {
+        val body = request(SubsonicEndpoint.JukeboxControl(action = "status"))
+        return body.jukeboxStatus
+    }
+
+    suspend fun jukeboxStart() {
+        request(SubsonicEndpoint.JukeboxControl(action = "start"))
+    }
+
+    suspend fun jukeboxStop() {
+        request(SubsonicEndpoint.JukeboxControl(action = "stop"))
+    }
+
+    suspend fun jukeboxSkip(index: Int, offset: Int = 0) {
+        request(SubsonicEndpoint.JukeboxControl(action = "skip", index = index, offset = offset))
+    }
+
+    suspend fun jukeboxSet(songIds: List<String>) {
+        request(SubsonicEndpoint.JukeboxControl(action = "set", ids = songIds))
+    }
+
+    suspend fun jukeboxAdd(songIds: List<String>) {
+        request(SubsonicEndpoint.JukeboxControl(action = "add", ids = songIds))
+    }
+
+    suspend fun jukeboxClear() {
+        request(SubsonicEndpoint.JukeboxControl(action = "clear"))
+    }
+
+    suspend fun jukeboxRemove(index: Int) {
+        request(SubsonicEndpoint.JukeboxControl(action = "remove", index = index))
+    }
+
+    suspend fun jukeboxShuffle() {
+        request(SubsonicEndpoint.JukeboxControl(action = "shuffle"))
+    }
+
+    suspend fun jukeboxSetGain(gain: Float) {
+        request(SubsonicEndpoint.JukeboxControl(action = "setGain", gain = gain.coerceIn(0f, 1f)))
     }
 
     suspend fun getNowPlaying(): List<NowPlayingEntry> {

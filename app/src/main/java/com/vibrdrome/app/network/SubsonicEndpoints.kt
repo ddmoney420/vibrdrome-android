@@ -262,6 +262,24 @@ sealed class SubsonicEndpoint {
         override val queryItems = mapOf("id" to id)
     }
 
+    data class JukeboxControl(
+        val action: String,
+        val index: Int? = null,
+        val offset: Int? = null,
+        val gain: Float? = null,
+        val ids: List<String> = emptyList(),
+    ) : SubsonicEndpoint() {
+        override val path = "/rest/jukeboxControl"
+        override val queryItems = buildMap {
+            put("action", action)
+            index?.let { put("index", it.toString()) }
+            offset?.let { put("offset", it.toString()) }
+            gain?.let { put("gain", it.toString()) }
+        }
+        val idParams: List<Pair<String, String>>
+            get() = ids.map { "id" to it }
+    }
+
     data object GetNowPlaying : SubsonicEndpoint() {
         override val path = "/rest/getNowPlaying"
         override val queryItems = emptyMap<String, String>()

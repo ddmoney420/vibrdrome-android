@@ -7,6 +7,7 @@ import com.vibrdrome.app.audio.HapticEngine
 import com.vibrdrome.app.audio.AdaptiveBitrate
 import com.vibrdrome.app.audio.PreBufferManager
 import com.vibrdrome.app.audio.ImmersiveMode
+import com.vibrdrome.app.audio.JukeboxManager
 import com.vibrdrome.app.audio.SmartTransitions
 import com.vibrdrome.app.audio.ListeningTracker
 import com.vibrdrome.app.audio.PlaybackManager
@@ -39,6 +40,7 @@ val appModule = module {
     single { EQEngine(get(), get()) }
     single { HapticEngine(get()) }
     single { ImmersiveMode(get()) }
+    single { JukeboxManager(get()) }
     single { SmartTransitions(get()) }
     single { AdaptiveBitrate(get()) }
     single { PreBufferManager(get()) }

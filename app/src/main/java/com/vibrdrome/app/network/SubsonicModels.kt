@@ -32,6 +32,8 @@ data class SubsonicResponseBody(
     val randomSongs: RandomSongsResponse? = null,
     val internetRadioStations: InternetRadioStationsWrapper? = null,
     val lyricsList: LyricsList? = null,
+    val jukeboxStatus: JukeboxStatus? = null,
+    val jukeboxPlaylist: JukeboxPlaylist? = null,
     val nowPlaying: NowPlayingWrapper? = null,
     val playQueue: PlayQueue? = null,
     val bookmarks: BookmarksWrapper? = null,
@@ -235,6 +237,25 @@ data class LyricLine(
 )
 
 // MARK: - Play Queue
+
+// MARK: - Jukebox
+
+@Serializable
+data class JukeboxStatus(
+    val currentIndex: Int = 0,
+    val playing: Boolean = false,
+    val gain: Float = 0.5f,
+    val position: Int = 0, // seconds
+)
+
+@Serializable
+data class JukeboxPlaylist(
+    val currentIndex: Int = 0,
+    val playing: Boolean = false,
+    val gain: Float = 0.5f,
+    val position: Int = 0,
+    val entry: List<Song>? = null,
+)
 
 // MARK: - Now Playing
 
