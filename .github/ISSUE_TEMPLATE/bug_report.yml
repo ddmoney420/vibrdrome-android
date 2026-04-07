@@ -1,0 +1,84 @@
+name: Bug Report
+description: Report a bug or crash
+labels: ["bug"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: Describe the issue...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: How can we reproduce this?
+      placeholder: |
+        1. Go to '...'
+        2. Tap on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What should have happened?
+    validations:
+      required: false
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Android Phone
+        - Android Tablet
+        - Android Auto
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device
+      placeholder: e.g. Pixel 8, Samsung Galaxy S24
+    validations:
+      required: true
+
+  - type: input
+    id: os_version
+    attributes:
+      label: Android version
+      placeholder: e.g. Android 15
+    validations:
+      required: true
+
+  - type: input
+    id: app_version
+    attributes:
+      label: Vibrdrome version
+      placeholder: e.g. v1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: server
+    attributes:
+      label: Navidrome version
+      placeholder: e.g. 0.53.3
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Screenshots / Logcat output
+      description: If applicable, add screenshots or logcat output.
+      render: shell
+    validations:
+      required: false
