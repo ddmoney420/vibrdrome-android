@@ -2,8 +2,10 @@ package com.vibrdrome.app.ui.settings
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -22,7 +24,10 @@ import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Vibration
+import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.ui.Alignment
+import androidx.compose.material3.Slider
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -94,6 +99,9 @@ fun SettingsScreen(
     val queueSyncEnabled by playbackManager.queueSyncEnabled.collectAsState()
     val scrobbleEnabled by playbackManager.scrobbleEnabled.collectAsState()
     val jukeboxEnabled by jukeboxManager.enabled.collectAsState()
+    val jukeboxGain by jukeboxManager.gain.collectAsState()
+    val jukeboxStatus by jukeboxManager.status.collectAsState()
+    val jukeboxCurrentSong by jukeboxManager.currentSong.collectAsState()
     val smartTransitionsEnabled by smartTransitions.enabled.collectAsState()
     val adaptiveCellular by adaptiveBitrate.enabledOnCellular.collectAsState()
     val adaptiveWifi by adaptiveBitrate.enabledOnWifi.collectAsState()
@@ -191,6 +199,49 @@ fun SettingsScreen(
                     )
                 },
             )
+            if (jukeboxEnabled) {
+                ListItem(
+                    headlineContent = { Text("Server Volume") },
+                    supportingContent = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Slider(
+                                value = jukeboxGain,
+                                onValueChange = { jukeboxManager.setGain(it) },
+                                valueRange = 0f..1f,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                text = "${(jukeboxGain * 100).toInt()}%",
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(start = 8.dp),
+                            )
+                        }
+                    },
+                    leadingContent = { Icon(Icons.AutoMirrored.Filled.VolumeUp, contentDescription = null) },
+                )
+                val nowPlaying = jukeboxCurrentSong
+                ListItem(
+                    headlineContent = { Text("Now Playing") },
+                    supportingContent = {
+                        Text(
+                            if (nowPlaying != null) {
+                                "${nowPlaying.title} — ${nowPlaying.artist ?: "Unknown"}"
+                            } else {
+                                "Nothing playing"
+                            }
+                        )
+                    },
+                    leadingContent = {
+                        Text(
+                            if (jukeboxStatus?.playing == true) "▶" else "⏸",
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                    },
+                )
+            }
             ListItem(
                 headlineContent = { Text("Crossfade only on shuffle") },
                 supportingContent = { Text("Gapless for albums, crossfade for shuffle") },
