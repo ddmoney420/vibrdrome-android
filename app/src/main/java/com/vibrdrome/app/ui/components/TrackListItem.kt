@@ -1,5 +1,6 @@
 package com.vibrdrome.app.ui.components
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -27,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.vibrdrome.app.audio.PlaybackManager
@@ -52,8 +55,10 @@ fun TrackListItem(
     onGoToArtist: ((String) -> Unit)? = null,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
     var isStarred by remember(song.id) { mutableStateOf(song.starred != null) }
+    var showPlaylistDialog by remember { mutableStateOf(false) }
 
     Row(
         verticalAlignment = Alignment.CenterVertically,
@@ -134,6 +139,19 @@ fun TrackListItem(
                         playbackManager.addToQueue(song)
                     },
                 )
+                DropdownMenuItem(
+                    text = { Text("Add to Playlist") },
+                    leadingIcon = {
+                        Icon(
+                            Icons.AutoMirrored.Filled.PlaylistAdd,
+                            contentDescription = null,
+                        )
+                    },
+                    onClick = {
+                        showMenu = false
+                        showPlaylistDialog = true
+                    },
+                )
                 if (onGoToAlbum != null && song.albumId != null) {
                     DropdownMenuItem(
                         text = { Text("Go to Album") },
@@ -195,5 +213,16 @@ fun TrackListItem(
                 )
             }
         }
+    }
+
+    if (showPlaylistDialog) {
+        AddToPlaylistDialog(
+            songId = song.id,
+            client = appState.subsonicClient,
+            onDismiss = { showPlaylistDialog = false },
+            onAdded = { name ->
+                Toast.makeText(context, "Added to $name", Toast.LENGTH_SHORT).show()
+            },
+        )
     }
 }

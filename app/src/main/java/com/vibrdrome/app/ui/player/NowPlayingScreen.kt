@@ -16,6 +16,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Subtitles
 import android.widget.Toast
@@ -54,6 +57,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,6 +73,7 @@ import com.vibrdrome.app.audio.PlaybackManager
 import com.vibrdrome.app.audio.ReplayGainMode
 import org.koin.compose.koinInject
 import com.vibrdrome.app.audio.SleepTimer
+import com.vibrdrome.app.ui.components.AddToPlaylistDialog
 import com.vibrdrome.app.ui.components.AlbumArtView
 import com.vibrdrome.app.util.formatDurationMs
 
@@ -95,9 +100,13 @@ fun NowPlayingScreen(
     val isCasting by playbackManager.isCasting.collectAsState()
     val castDeviceName by playbackManager.castDeviceName.collectAsState()
     val activityContext = LocalContext.current
+    val appState: com.vibrdrome.app.ui.AppState = koinInject()
     val jukeboxManager: JukeboxManager = koinInject()
     val isJukebox by jukeboxManager.enabled.collectAsState()
     val jukeboxGain by jukeboxManager.gain.collectAsState()
+
+    var isStarred by remember(currentSong?.id) { mutableStateOf(currentSong?.starred != null) }
+    var showPlaylistDialog by remember { mutableStateOf(false) }
 
     val song = currentSong
     if (song == null) {
@@ -463,7 +472,6 @@ fun NowPlayingScreen(
                 }
 
                 // Bookmark current position
-                val appState: com.vibrdrome.app.ui.AppState = koinInject()
                 TextButton(onClick = {
                     bookmarkScope.launch {
                         try {
@@ -477,6 +485,37 @@ fun NowPlayingScreen(
                     Icon(
                         Icons.Default.BookmarkAdd,
                         contentDescription = "Bookmark",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                // Favorite
+                TextButton(onClick = {
+                    val wasStarred = isStarred
+                    isStarred = !wasStarred
+                    bookmarkScope.launch {
+                        try {
+                            val client = appState.subsonicClient
+                            if (wasStarred) client.unstar(id = song.id)
+                            else client.star(id = song.id)
+                        } catch (_: Throwable) {
+                            isStarred = wasStarred
+                        }
+                    }
+                }) {
+                    Icon(
+                        if (isStarred) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = if (isStarred) "Unfavorite" else "Favorite",
+                        tint = if (isStarred) Color(0xFFFF69B4)
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                // Add to Playlist
+                TextButton(onClick = { showPlaylistDialog = true }) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.PlaylistAdd,
+                        contentDescription = "Add to Playlist",
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -512,5 +551,16 @@ fun NowPlayingScreen(
 
             Spacer(Modifier.height(16.dp))
         }
+    }
+
+    if (showPlaylistDialog) {
+        AddToPlaylistDialog(
+            songId = song.id,
+            client = appState.subsonicClient,
+            onDismiss = { showPlaylistDialog = false },
+            onAdded = { name ->
+                Toast.makeText(activityContext, "Added to $name", Toast.LENGTH_SHORT).show()
+            },
+        )
     }
 }
