@@ -5,6 +5,7 @@ import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Delete
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
@@ -43,7 +44,10 @@ interface PlaybackStateDao {
     suspend fun clear()
 }
 
-@Entity(tableName = "search_history")
+@Entity(
+    tableName = "search_history",
+    indices = [Index(value = ["timestamp"], name = "idx_search_history_timestamp")],
+)
 data class SearchHistoryEntry(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val query: String,

@@ -429,7 +429,11 @@ private fun VibrdromeNavHost(appState: AppState) {
                 SettingsScreen(appState, safeBack,
                     { navController.navigate(ServerManagerRoute) },
                     { navController.navigate(EQRoute) },
-                    { navController.navigate(ServerConfigRoute) { popUpTo(0) { inclusive = true } } })
+                    { navController.navigate(ServerConfigRoute) { popUpTo(0) { inclusive = true } } },
+                    { navController.navigate(ToolbarEditorRoute) })
+            }
+            composable<ToolbarEditorRoute> {
+                com.vibrdrome.app.ui.settings.NowPlayingToolbarEditor(onNavigateBack = safeBack)
             }
             composable<ServerManagerRoute> {
                 ServerManagerScreen(appState) { safeBack() }

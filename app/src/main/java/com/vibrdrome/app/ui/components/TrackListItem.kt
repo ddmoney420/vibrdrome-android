@@ -78,69 +78,10 @@ fun TrackListItem(
     val currentPlayingSongId = playbackManager.currentSong.collectAsState().value?.id
     val isCurrentlyPlaying = playbackManager.isPlaying.collectAsState().value
 
-    val swipeState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            when (value) {
-                SwipeToDismissBoxValue.StartToEnd -> {
-                    playbackManager.playNext(song)
-                    Toast.makeText(context, "Playing next", Toast.LENGTH_SHORT).show()
-                    false // Reset swipe position
-                }
-                SwipeToDismissBoxValue.EndToStart -> {
-                    playbackManager.addToQueue(song)
-                    Toast.makeText(context, "Added to queue", Toast.LENGTH_SHORT).show()
-                    false // Reset swipe position
-                }
-                else -> false
-            }
-        },
-    )
-
-    SwipeToDismissBox(
-        state = swipeState,
-        backgroundContent = {
-            val direction = swipeState.dismissDirection
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        when (direction) {
-                            SwipeToDismissBoxValue.StartToEnd -> MaterialTheme.colorScheme.primaryContainer
-                            SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.secondaryContainer
-                            else -> MaterialTheme.colorScheme.surface
-                        }
-                    )
-                    .padding(horizontal = 20.dp),
-                contentAlignment = when (direction) {
-                    SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
-                    else -> Alignment.CenterEnd
-                },
-            ) {
-                when (direction) {
-                    SwipeToDismissBoxValue.StartToEnd -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.SkipNext, contentDescription = "Play Next", tint = MaterialTheme.colorScheme.onPrimaryContainer)
-                            Spacer(Modifier.width(4.dp))
-                            Text("Play Next", color = MaterialTheme.colorScheme.onPrimaryContainer, style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
-                    SwipeToDismissBoxValue.EndToStart -> {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Add to Queue", color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.labelMedium)
-                            Spacer(Modifier.width(4.dp))
-                            Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = "Add to Queue", tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                        }
-                    }
-                    else -> {}
-                }
-            }
-        },
-    ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
             .clickable(onClick = onClick)
             .padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
     ) {
@@ -329,7 +270,6 @@ fun TrackListItem(
             }
         }
     }
-    } // SwipeToDismissBox
 
     if (showPlaylistDialog) {
         AddToPlaylistDialog(

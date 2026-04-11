@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -76,7 +77,9 @@ fun SettingsScreen(
     onNavigateToServerManager: () -> Unit,
     onNavigateToEQ: () -> Unit,
     onSignOut: () -> Unit,
+    onNavigateToToolbarEditor: () -> Unit = {},
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     val eqEngine: EQEngine = koinInject()
     val playbackManager: PlaybackManager = koinInject()
     val cacheManager: CacheManager = koinInject()
@@ -121,6 +124,7 @@ fun SettingsScreen(
     var showWifiQualityDialog by remember { mutableStateOf(false) }
     var showCellularQualityDialog by remember { mutableStateOf(false) }
     var lastFmApiKeyInput by remember { mutableStateOf(appState.lastFmApiKey ?: "") }
+    var lastFmSaved by remember { mutableStateOf(!appState.lastFmApiKey.isNullOrEmpty()) }
     val scope = rememberCoroutineScope()
 
     Scaffold(
@@ -393,6 +397,11 @@ fun SettingsScreen(
                 leadingContent = { Icon(Icons.Default.DarkMode, contentDescription = null) },
                 modifier = Modifier.clickable { showThemeDialog = true },
             )
+            ListItem(
+                headlineContent = { Text("Customize Now Playing") },
+                supportingContent = { Text("Show, hide, and reorder toolbar buttons") },
+                modifier = Modifier.clickable { onNavigateToToolbarEditor() },
+            )
             HorizontalDivider()
 
             // Last.fm
@@ -400,7 +409,7 @@ fun SettingsScreen(
             ListItem(
                 headlineContent = { Text("Status") },
                 supportingContent = {
-                    Text(if (appState.lastFmApiKey.isNullOrEmpty()) "Not configured" else "Connected")
+                    Text(if (lastFmSaved) "Connected" else "Not configured")
                 },
                 leadingContent = { Icon(Icons.Default.MusicNote, contentDescription = null) },
             )
@@ -411,26 +420,33 @@ fun SettingsScreen(
                         onValueChange = { lastFmApiKeyInput = it },
                         label = { Text("API Key") },
                         singleLine = true,
+                        visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 },
             )
-            ListItem(
-                headlineContent = { Text("Save API Key") },
-                modifier = Modifier.clickable {
-                    if (lastFmApiKeyInput.isNotBlank()) {
-                        appState.lastFmApiKey = lastFmApiKeyInput.trim()
-                    }
-                },
-            )
-            ListItem(
-                headlineContent = { Text("Clear API Key") },
-                leadingContent = { Icon(Icons.Default.Clear, contentDescription = null) },
-                modifier = Modifier.clickable {
-                    appState.lastFmApiKey = null
-                    lastFmApiKeyInput = ""
-                },
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                TextButton(
+                    onClick = {
+                        if (lastFmApiKeyInput.isNotBlank()) {
+                            appState.lastFmApiKey = lastFmApiKeyInput.trim()
+                            lastFmSaved = true
+                        }
+                    },
+                    enabled = lastFmApiKeyInput.isNotBlank(),
+                ) { Text("Save") }
+                TextButton(
+                    onClick = {
+                        appState.lastFmApiKey = null
+                        lastFmApiKeyInput = ""
+                        lastFmSaved = false
+                    },
+                    enabled = lastFmSaved,
+                ) { Text("Clear") }
+            }
             HorizontalDivider()
 
             // Storage
@@ -453,11 +469,44 @@ fun SettingsScreen(
             )
             HorizontalDivider()
 
+            // Backup & Restore
+            SectionHeader("Backup & Restore")
+            ListItem(
+                headlineContent = { Text("Export Settings") },
+                supportingContent = { Text("Save settings backup file") },
+                modifier = Modifier.clickable {
+                    val json = com.vibrdrome.app.util.SettingsBackup.exportSettings(context)
+                    val timestamp = java.time.LocalDateTime.now().format(
+                        java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmmss")
+                    )
+                    val fileName = "vibrdrome-backup-$timestamp.json"
+                    val file = java.io.File(context.cacheDir, fileName)
+                    file.writeText(json)
+                    val uri = androidx.core.content.FileProvider.getUriForFile(
+                        context, "${context.packageName}.fileprovider", file
+                    )
+                    val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                        type = "application/json"
+                        putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    }
+                    context.startActivity(android.content.Intent.createChooser(shareIntent, "Save Vibrdrome Backup"))
+                },
+            )
+            ListItem(
+                headlineContent = { Text("Import Settings") },
+                supportingContent = { Text("Restore from backup file") },
+                modifier = Modifier.clickable {
+                    android.widget.Toast.makeText(context, "Share a vibrdrome-backup file to this app to import", android.widget.Toast.LENGTH_LONG).show()
+                },
+            )
+            HorizontalDivider()
+
             // About
             SectionHeader("About")
             ListItem(
                 headlineContent = { Text("Vibrdrome") },
-                supportingContent = { Text("Version 1.0.0") },
+                supportingContent = { Text("Version ${com.vibrdrome.app.BuildConfig.VERSION_NAME}") },
                 leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
             )
 

@@ -119,11 +119,8 @@ fun AlbumDetailScreen(
                         // Album header with parallax
                         item(key = "header") {
                             val parallaxOffset = if (listState.firstVisibleItemIndex == 0) {
-                                listState.firstVisibleItemScrollOffset * 0.5f
+                                listState.firstVisibleItemScrollOffset * 0.4f
                             } else 0f
-                            val alpha = if (listState.firstVisibleItemIndex == 0) {
-                                1f - (listState.firstVisibleItemScrollOffset / 800f).coerceIn(0f, 0.5f)
-                            } else 0.5f
 
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -137,9 +134,9 @@ fun AlbumDetailScreen(
                                     cornerRadius = 12.dp,
                                     modifier = Modifier.graphicsLayer {
                                         translationY = parallaxOffset
-                                        this.alpha = alpha
-                                        scaleX = 1f - (parallaxOffset / 2000f).coerceIn(0f, 0.15f)
-                                        scaleY = 1f - (parallaxOffset / 2000f).coerceIn(0f, 0.15f)
+                                        val scale = 1f - (parallaxOffset / 2000f).coerceIn(0f, 0.1f)
+                                        scaleX = scale
+                                        scaleY = scale
                                     },
                                 )
 

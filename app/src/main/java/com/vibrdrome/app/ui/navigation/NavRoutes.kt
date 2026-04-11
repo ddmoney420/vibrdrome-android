@@ -100,3 +100,6 @@ data object StatsRoute
 
 @Serializable
 data object BookmarksRoute
+
+@Serializable
+data object ToolbarEditorRoute
