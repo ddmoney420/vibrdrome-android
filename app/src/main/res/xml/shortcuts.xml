@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="play_favorites"
+        android:enabled="true"
+        android:shortcutShortLabel="@string/shortcut_favorites"
+        android:shortcutLongLabel="@string/shortcut_favorites_long">
+        <intent
+            android:action="com.vibrdrome.app.ACTION_PLAY_FAVORITES"
+            android:targetPackage="com.vibrdrome.app"
+            android:targetClass="com.vibrdrome.app.MainActivity" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="random_mix"
+        android:enabled="true"
+        android:shortcutShortLabel="@string/shortcut_random"
+        android:shortcutLongLabel="@string/shortcut_random_long">
+        <intent
+            android:action="com.vibrdrome.app.ACTION_RANDOM_MIX"
+            android:targetPackage="com.vibrdrome.app"
+            android:targetClass="com.vibrdrome.app.MainActivity" />
+    </shortcut>
+</shortcuts>

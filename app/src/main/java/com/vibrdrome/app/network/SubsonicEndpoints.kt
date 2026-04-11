@@ -33,6 +33,19 @@ sealed class SubsonicEndpoint {
         override val queryItems = mapOf("id" to id)
     }
 
+    data class GetArtistInfo2(
+        val id: String,
+        val count: Int = 20,
+        val includeNotPresent: Boolean = false,
+    ) : SubsonicEndpoint() {
+        override val path = "/rest/getArtistInfo2"
+        override val queryItems = buildMap {
+            put("id", id)
+            put("count", count.toString())
+            if (includeNotPresent) put("includeNotPresent", "true")
+        }
+    }
+
     data class GetAlbum(val id: String) : SubsonicEndpoint() {
         override val path = "/rest/getAlbum"
         override val queryItems = mapOf("id" to id)

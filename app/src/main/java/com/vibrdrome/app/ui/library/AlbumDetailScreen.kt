@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
@@ -47,6 +49,7 @@ import com.vibrdrome.app.network.Album
 import com.vibrdrome.app.network.SubsonicClient
 import com.vibrdrome.app.network.SubsonicError
 import com.vibrdrome.app.ui.components.AlbumArtView
+import com.vibrdrome.app.ui.components.FormatBadge
 import com.vibrdrome.app.ui.components.TrackListItem
 import com.vibrdrome.app.util.formatDuration
 import com.vibrdrome.app.audio.PlaybackManager
@@ -111,9 +114,17 @@ fun AlbumDetailScreen(
                     val currentAlbum = album!!
                     val songs = currentAlbum.song ?: emptyList()
 
-                    LazyColumn {
-                        // Album header
+                    val listState = rememberLazyListState()
+                    LazyColumn(state = listState) {
+                        // Album header with parallax
                         item(key = "header") {
+                            val parallaxOffset = if (listState.firstVisibleItemIndex == 0) {
+                                listState.firstVisibleItemScrollOffset * 0.5f
+                            } else 0f
+                            val alpha = if (listState.firstVisibleItemIndex == 0) {
+                                1f - (listState.firstVisibleItemScrollOffset / 800f).coerceIn(0f, 0.5f)
+                            } else 0.5f
+
                             Column(
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 modifier = Modifier
@@ -124,6 +135,12 @@ fun AlbumDetailScreen(
                                     coverArtUrl = currentAlbum.coverArt?.let { client.coverArtURL(it, size = 480) },
                                     size = 240.dp,
                                     cornerRadius = 12.dp,
+                                    modifier = Modifier.graphicsLayer {
+                                        translationY = parallaxOffset
+                                        this.alpha = alpha
+                                        scaleX = 1f - (parallaxOffset / 2000f).coerceIn(0f, 0.15f)
+                                        scaleY = 1f - (parallaxOffset / 2000f).coerceIn(0f, 0.15f)
+                                    },
                                 )
 
                                 Spacer(Modifier.height(12.dp))
@@ -158,6 +175,15 @@ fun AlbumDetailScreen(
                                         text = meta.joinToString(" · "),
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                    )
+                                }
+
+                                // Show format badge from first song
+                                songs.firstOrNull()?.let { firstSong ->
+                                    FormatBadge(
+                                        suffix = firstSong.suffix,
+                                        bitRate = firstSong.bitRate,
+                                        modifier = Modifier.padding(top = 4.dp),
                                     )
                                 }
                             }
@@ -226,15 +252,40 @@ fun AlbumDetailScreen(
                             }
                         }
 
-                        // Songs
-                        itemsIndexed(songs, key = { _, song -> song.id }) { index, song ->
-                            TrackListItem(
-                                song = song,
-                                showTrackNumber = true,
-                                onClick = { playbackManager.play(songs, index) },
-                                onGoToArtist = onNavigateToArtist,
-                            )
-                            HorizontalDivider(Modifier.padding(start = 56.dp))
+                        // Songs (grouped by disc if multi-disc)
+                        val discs = songs.groupBy { it.discNumber ?: 1 }.toSortedMap()
+                        val isMultiDisc = discs.size > 1
+
+                        discs.forEach { (discNum, discSongs) ->
+                            if (isMultiDisc) {
+                                item(key = "disc_$discNum") {
+                                    Text(
+                                        text = "Disc $discNum",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(
+                                            start = 16.dp,
+                                            end = 16.dp,
+                                            top = 16.dp,
+                                            bottom = 4.dp,
+                                        ),
+                                    )
+                                    HorizontalDivider()
+                                }
+                            }
+                            discSongs.forEach { song ->
+                                val globalIndex = songs.indexOf(song)
+                                item(key = song.id) {
+                                    TrackListItem(
+                                        song = song,
+                                        showTrackNumber = true,
+                                        onClick = { playbackManager.play(songs, globalIndex) },
+                                        onGoToArtist = onNavigateToArtist,
+                                    )
+                                    HorizontalDivider(Modifier.padding(start = 56.dp))
+                                }
+                            }
                         }
 
                         // Footer

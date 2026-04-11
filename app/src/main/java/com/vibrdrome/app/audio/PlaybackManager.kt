@@ -208,6 +208,15 @@ class PlaybackManager(
     private val _autoNormalizeEnabled = MutableStateFlow(prefs.getBoolean("auto_normalize", true))
     val autoNormalizeEnabled: StateFlow<Boolean> = _autoNormalizeEnabled.asStateFlow()
 
+    // Auto-continue queue with similar songs
+    private val _autoContinueEnabled = MutableStateFlow(prefs.getBoolean("auto_continue", false))
+    val autoContinueEnabled: StateFlow<Boolean> = _autoContinueEnabled.asStateFlow()
+
+    fun setAutoContinueEnabled(enabled: Boolean) {
+        _autoContinueEnabled.value = enabled
+        prefs.edit().putBoolean("auto_continue", enabled).apply()
+    }
+
     // Queue sync
     private val _queueSyncEnabled = MutableStateFlow(prefs.getBoolean("queue_sync_enabled", true))
     val queueSyncEnabled: StateFlow<Boolean> = _queueSyncEnabled.asStateFlow()
@@ -249,6 +258,23 @@ class PlaybackManager(
             // Track the new song for listening stats
             _currentSong.value?.let { listeningTracker.onTrackStarted(it) }
             onTrackChanged?.invoke()
+
+            // Auto-continue: fetch similar songs when nearing end of queue
+            if (_autoContinueEnabled.value) {
+                val currentIdx = player.currentMediaItemIndex
+                val queueSize = _queue.value.size
+                if (currentIdx >= queueSize - 2 && queueSize > 0) {
+                    val songId = _currentSong.value?.id ?: return
+                    val existingIds = _queue.value.map { it.id }.toSet()
+                    scope.launch {
+                        try {
+                            val similar = appState.subsonicClient.getSimilarSongs(songId, count = 15)
+                            val newSongs = similar.filter { it.id !in existingIds }
+                            newSongs.forEach { addToQueue(it) }
+                        } catch (_: Throwable) { }
+                    }
+                }
+            }
         }
 
         override fun onPlaybackStateChanged(state: Int) {

@@ -419,6 +419,16 @@ class AppState(private val context: Context) {
         return Uri.parse(url).host ?: "My Server"
     }
 
+    var lastFmApiKey: String?
+        get() = securePrefs.getString("lastfm_api_key", null)
+        set(value) {
+            if (value != null) {
+                securePrefs.edit().putString("lastfm_api_key", value).apply()
+            } else {
+                securePrefs.edit().remove("lastfm_api_key").apply()
+            }
+        }
+
     companion object {
         val QUALITY_OPTIONS = listOf(
             0 to "Original",

@@ -217,6 +217,13 @@ class SubsonicClient(
         return body.artist ?: throw SubsonicError.ApiError(70, "Artist not found")
     }
 
+    suspend fun getArtistInfo2(id: String, count: Int = 20): ArtistInfo2? {
+        return try {
+            val body = request(SubsonicEndpoint.GetArtistInfo2(id, count))
+            body.artistInfo2
+        } catch (_: Throwable) { null }
+    }
+
     suspend fun getAlbum(id: String): Album {
         val body = request(SubsonicEndpoint.GetAlbum(id))
         return body.album ?: throw SubsonicError.ApiError(70, "Album not found")

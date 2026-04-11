@@ -42,6 +42,7 @@ data class SubsonicResponseBody(
     val musicFolders: MusicFoldersWrapper? = null,
     val directory: MusicDirectory? = null,
     val indexes: IndexesResponse? = null,
+    val artistInfo2: ArtistInfo2? = null,
 )
 
 @Serializable
@@ -140,6 +141,7 @@ data class Song(
     val bpm: Int? = null,
     val replayGain: ReplayGain? = null,
     val musicBrainzId: String? = null,
+    val userRating: Int? = null,
 )
 
 @Serializable
@@ -170,6 +172,28 @@ data class Playlist(
     val owner: String? = null,
     @SerialName("public") val isPublic: Boolean? = null,
     val entry: List<Song>? = null,
+)
+
+// MARK: - Artist Info
+
+@Serializable
+data class ArtistInfo2(
+    val biography: String? = null,
+    val musicBrainzId: String? = null,
+    val lastFmUrl: String? = null,
+    val smallImageUrl: String? = null,
+    val mediumImageUrl: String? = null,
+    val largeImageUrl: String? = null,
+    val similarArtist: List<SimilarArtistRef>? = null,
+)
+
+@Serializable
+data class SimilarArtistRef(
+    val id: String,
+    val name: String,
+    val coverArt: String? = null,
+    val albumCount: Int? = null,
+    val starred: String? = null,
 )
 
 // MARK: - Search Results

@@ -13,12 +13,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Dns
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.SignalCellularAlt
 import androidx.compose.material.icons.filled.Speaker
 import androidx.compose.material.icons.filled.Speed
@@ -34,6 +36,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
@@ -97,6 +100,7 @@ fun SettingsScreen(
     val isImmersive by immersiveMode.enabled.collectAsState()
     val replayGainMode by playbackManager.replayGainMode.collectAsState()
     val queueSyncEnabled by playbackManager.queueSyncEnabled.collectAsState()
+    val autoContinueEnabled by playbackManager.autoContinueEnabled.collectAsState()
     val scrobbleEnabled by playbackManager.scrobbleEnabled.collectAsState()
     val jukeboxEnabled by jukeboxManager.enabled.collectAsState()
     val jukeboxGain by jukeboxManager.gain.collectAsState()
@@ -116,6 +120,7 @@ fun SettingsScreen(
     var showSignOutConfirm by remember { mutableStateOf(false) }
     var showWifiQualityDialog by remember { mutableStateOf(false) }
     var showCellularQualityDialog by remember { mutableStateOf(false) }
+    var lastFmApiKeyInput by remember { mutableStateOf(appState.lastFmApiKey ?: "") }
     val scope = rememberCoroutineScope()
 
     Scaffold(
@@ -319,6 +324,16 @@ fun SettingsScreen(
                 },
             )
             ListItem(
+                headlineContent = { Text("Auto-continue queue") },
+                supportingContent = { Text("Add similar songs when queue ends") },
+                trailingContent = {
+                    androidx.compose.material3.Switch(
+                        checked = autoContinueEnabled,
+                        onCheckedChange = { playbackManager.setAutoContinueEnabled(it) },
+                    )
+                },
+            )
+            ListItem(
                 headlineContent = { Text("Smart Transitions") },
                 supportingContent = { Text("Auto gapless/crossfade based on content") },
                 trailingContent = {
@@ -377,6 +392,44 @@ fun SettingsScreen(
                 },
                 leadingContent = { Icon(Icons.Default.DarkMode, contentDescription = null) },
                 modifier = Modifier.clickable { showThemeDialog = true },
+            )
+            HorizontalDivider()
+
+            // Last.fm
+            SectionHeader("Last.fm")
+            ListItem(
+                headlineContent = { Text("Status") },
+                supportingContent = {
+                    Text(if (appState.lastFmApiKey.isNullOrEmpty()) "Not configured" else "Connected")
+                },
+                leadingContent = { Icon(Icons.Default.MusicNote, contentDescription = null) },
+            )
+            ListItem(
+                headlineContent = {
+                    OutlinedTextField(
+                        value = lastFmApiKeyInput,
+                        onValueChange = { lastFmApiKeyInput = it },
+                        label = { Text("API Key") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                },
+            )
+            ListItem(
+                headlineContent = { Text("Save API Key") },
+                modifier = Modifier.clickable {
+                    if (lastFmApiKeyInput.isNotBlank()) {
+                        appState.lastFmApiKey = lastFmApiKeyInput.trim()
+                    }
+                },
+            )
+            ListItem(
+                headlineContent = { Text("Clear API Key") },
+                leadingContent = { Icon(Icons.Default.Clear, contentDescription = null) },
+                modifier = Modifier.clickable {
+                    appState.lastFmApiKey = null
+                    lastFmApiKeyInput = ""
+                },
             )
             HorizontalDivider()
 

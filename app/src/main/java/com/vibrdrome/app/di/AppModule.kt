@@ -20,20 +20,23 @@ import com.vibrdrome.app.downloads.CacheManager
 import com.vibrdrome.app.downloads.DownloadManager
 import com.vibrdrome.app.persistence.AppDatabase
 import com.vibrdrome.app.persistence.NetworkMonitor
+import com.vibrdrome.app.network.LastFmClient
 import com.vibrdrome.app.ui.AppState
 import org.koin.dsl.module
 
 val appModule = module {
     single { AppState(get()) }
+    single { LastFmClient() }
     single {
         Room.databaseBuilder(get(), AppDatabase::class.java, "vibrdrome.db")
-            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4)
+            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5)
             .build()
     }
     single { get<AppDatabase>().playbackStateDao() }
     single { get<AppDatabase>().downloadDao() }
     single { get<AppDatabase>().pendingActionDao() }
     single { get<AppDatabase>().listeningStatsDao() }
+    single { get<AppDatabase>().searchHistoryDao() }
     single { OfflineActionQueue(get()) }
     single { EQCoefficientsStore() }
     single { SleepTimer() }

@@ -1,14 +1,21 @@
 package com.vibrdrome.app.ui.player
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CastConnected
 import androidx.compose.material.icons.filled.Pause
@@ -16,7 +23,6 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,6 +31,9 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.unit.dp
@@ -52,25 +61,49 @@ fun MiniPlayer(
 
     val song = currentSong ?: return
 
+    val infiniteTransition = rememberInfiniteTransition(label = "spin")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(tween(8000, easing = LinearEasing)),
+        label = "rotation",
+    )
+    val primaryColor = MaterialTheme.colorScheme.primary
+
     Surface(
         tonalElevation = 3.dp,
         shadowElevation = 8.dp,
         modifier = modifier.fillMaxWidth(),
     ) {
         Column(Modifier.navigationBarsPadding()) {
-            LinearProgressIndicator(
-                progress = { if (durationMs > 0) positionMs.toFloat() / durationMs else 0f },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(2.dp),
-            )
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier
                     .clickable(onClick = onClick)
                     .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
             ) {
-                AlbumArtView(coverArtUrl = coverArtUrl, size = 40.dp, cornerRadius = 6.dp)
+                Box(modifier = Modifier.size(44.dp), contentAlignment = Alignment.Center) {
+                    // Circular progress ring
+                    val progress = if (durationMs > 0) positionMs.toFloat() / durationMs else 0f
+                    Canvas(modifier = Modifier.size(44.dp)) {
+                        drawArc(
+                            color = primaryColor,
+                            startAngle = -90f,
+                            sweepAngle = 360f * progress,
+                            useCenter = false,
+                            style = Stroke(width = 2.dp.toPx()),
+                        )
+                    }
+                    // Spinning album art
+                    AlbumArtView(
+                        coverArtUrl = coverArtUrl,
+                        size = 40.dp,
+                        cornerRadius = 20.dp,
+                        modifier = Modifier
+                            .clip(CircleShape)
+                            .graphicsLayer { rotationZ = if (isPlaying) rotation else 0f },
+                    )
+                }
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(

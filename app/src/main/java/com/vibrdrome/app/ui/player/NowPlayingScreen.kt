@@ -18,6 +18,8 @@ import androidx.compose.material.icons.automirrored.filled.QueueMusic
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
 import androidx.compose.material.icons.filled.Equalizer
 import androidx.compose.material.icons.filled.Subtitles
@@ -75,6 +77,7 @@ import org.koin.compose.koinInject
 import com.vibrdrome.app.audio.SleepTimer
 import com.vibrdrome.app.ui.components.AddToPlaylistDialog
 import com.vibrdrome.app.ui.components.AlbumArtView
+import com.vibrdrome.app.ui.components.FormatBadge
 import com.vibrdrome.app.util.formatDurationMs
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -106,6 +109,7 @@ fun NowPlayingScreen(
     val jukeboxGain by jukeboxManager.gain.collectAsState()
 
     var isStarred by remember(currentSong?.id) { mutableStateOf(currentSong?.starred != null) }
+    var currentRating by remember(currentSong?.id) { mutableStateOf(currentSong?.userRating ?: 0) }
     var showPlaylistDialog by remember { mutableStateOf(false) }
 
     val song = currentSong
@@ -304,6 +308,13 @@ fun NowPlayingScreen(
                     )
                 }
             }
+
+            // Format badge
+            FormatBadge(
+                suffix = song.suffix,
+                bitRate = song.bitRate,
+                modifier = Modifier.padding(top = 4.dp),
+            )
 
             // Quality + Scrobble indicators
             val adaptiveBitrateEngine: AdaptiveBitrate = koinInject()
@@ -520,6 +531,38 @@ fun NowPlayingScreen(
                     )
                 }
 
+            }
+
+            // Star rating row
+            Row(
+                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+            ) {
+                (1..5).forEach { star ->
+                    IconButton(
+                        onClick = {
+                            val newRating = if (currentRating == star) 0 else star
+                            val oldRating = currentRating
+                            currentRating = newRating
+                            bookmarkScope.launch {
+                                try {
+                                    appState.subsonicClient.setRating(song.id, newRating)
+                                } catch (_: Throwable) {
+                                    currentRating = oldRating
+                                }
+                            }
+                        },
+                    ) {
+                        Icon(
+                            if (star <= currentRating) Icons.Default.Star else Icons.Default.StarBorder,
+                            contentDescription = "$star star",
+                            tint = if (star <= currentRating) Color(0xFFFFB300)
+                            else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                        )
+                    }
+                }
             }
 
             if (showSleepDialog) {

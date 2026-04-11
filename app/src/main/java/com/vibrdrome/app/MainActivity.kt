@@ -1,5 +1,6 @@
 package com.vibrdrome.app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -74,22 +75,53 @@ import com.vibrdrome.app.ui.settings.ServerConfigScreen
 import com.vibrdrome.app.ui.settings.ServerManagerScreen
 import com.vibrdrome.app.ui.settings.SettingsScreen
 import com.vibrdrome.app.ui.theme.VibrdromeAppTheme
+import androidx.lifecycle.lifecycleScope
 import org.koin.android.ext.android.inject
 import org.koin.compose.koinInject
 
 class MainActivity : ComponentActivity() {
     private val appState: AppState by inject()
     private val castManager: CastManager by inject()
+    private val playbackManager: PlaybackManager by inject()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         // Cast SDK requires Activity context for initialization
         castManager.initialize(this)
         enableEdgeToEdge()
+        handleShortcutIntent(intent)
         setContent {
             val themeMode by appState.themeMode.collectAsState()
             VibrdromeAppTheme(themeMode = themeMode) {
                 VibrdromeNavHost(appState)
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleShortcutIntent(intent)
+    }
+
+    private fun handleShortcutIntent(intent: Intent?) {
+        when (intent?.action) {
+            "com.vibrdrome.app.ACTION_PLAY_FAVORITES" -> {
+                lifecycleScope.launch {
+                    try {
+                        val client = appState.subsonicClient
+                        val starred = client.getStarred()
+                        val songs = starred.song ?: return@launch
+                        if (songs.isNotEmpty()) playbackManager.playShuffle(songs)
+                    } catch (_: Throwable) {}
+                }
+            }
+            "com.vibrdrome.app.ACTION_RANDOM_MIX" -> {
+                lifecycleScope.launch {
+                    try {
+                        val songs = appState.subsonicClient.getRandomSongs(size = 50)
+                        if (songs.isNotEmpty()) playbackManager.play(songs)
+                    } catch (_: Throwable) {}
+                }
             }
         }
     }
@@ -264,6 +296,7 @@ private fun VibrdromeNavHost(appState: AppState) {
                     client = appState.subsonicClient,
                     onAlbumClick = { navController.navigate(AlbumDetailRoute(it)) },
                     onNavigateBack = safeBack,
+                    onNavigateToArtist = { navController.navigate(ArtistDetailRoute(it)) },
                 )
             }
             composable<AlbumDetailRoute> { e ->

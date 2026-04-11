@@ -3,13 +3,17 @@ package com.vibrdrome.app.persistence
 import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
+import androidx.room.Delete
 import androidx.room.Entity
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.Upsert
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import kotlinx.coroutines.flow.Flow
 
 @Entity(tableName = "playback_state")
 data class SavedPlaybackState(
@@ -39,9 +43,31 @@ interface PlaybackStateDao {
     suspend fun clear()
 }
 
+@Entity(tableName = "search_history")
+data class SearchHistoryEntry(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val query: String,
+    val timestamp: Long = System.currentTimeMillis(),
+)
+
+@Dao
+interface SearchHistoryDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entry: SearchHistoryEntry)
+
+    @Query("SELECT * FROM search_history ORDER BY timestamp DESC LIMIT :limit")
+    fun getRecent(limit: Int = 20): Flow<List<SearchHistoryEntry>>
+
+    @Query("DELETE FROM search_history WHERE query = :query")
+    suspend fun deleteByQuery(query: String)
+
+    @Query("DELETE FROM search_history")
+    suspend fun clearAll()
+}
+
 @Database(
-    entities = [SavedPlaybackState::class, DownloadedSong::class, PendingAction::class, ListeningSession::class],
-    version = 4,
+    entities = [SavedPlaybackState::class, DownloadedSong::class, PendingAction::class, ListeningSession::class, SearchHistoryEntry::class],
+    version = 5,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -49,8 +75,22 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun downloadDao(): DownloadDao
     abstract fun pendingActionDao(): PendingActionDao
     abstract fun listeningStatsDao(): ListeningStatsDao
+    abstract fun searchHistoryDao(): SearchHistoryDao
 
     companion object {
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("""
+                    CREATE TABLE IF NOT EXISTS search_history (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        query TEXT NOT NULL,
+                        timestamp INTEGER NOT NULL
+                    )
+                """)
+                db.execSQL("CREATE INDEX IF NOT EXISTS idx_search_history_timestamp ON search_history(timestamp)")
+            }
+        }
+
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("""

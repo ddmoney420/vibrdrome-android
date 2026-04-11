@@ -2,6 +2,7 @@ package com.vibrdrome.app.ui.components
 
 import android.widget.Toast
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,14 +14,26 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material.icons.automirrored.filled.PlaylistAdd
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.automirrored.filled.QueueMusic
+import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -41,6 +54,7 @@ import com.vibrdrome.app.util.formatDuration
 import kotlinx.coroutines.launch
 import org.koin.compose.koinInject
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TrackListItem(
     song: Song,
@@ -58,22 +72,89 @@ fun TrackListItem(
     val context = LocalContext.current
     var showMenu by remember { mutableStateOf(false) }
     var isStarred by remember(song.id) { mutableStateOf(song.starred != null) }
+    var currentRating by remember(song.id) { mutableStateOf(song.userRating ?: 0) }
     var showPlaylistDialog by remember { mutableStateOf(false) }
 
+    val currentPlayingSongId = playbackManager.currentSong.collectAsState().value?.id
+    val isCurrentlyPlaying = playbackManager.isPlaying.collectAsState().value
+
+    val swipeState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            when (value) {
+                SwipeToDismissBoxValue.StartToEnd -> {
+                    playbackManager.playNext(song)
+                    Toast.makeText(context, "Playing next", Toast.LENGTH_SHORT).show()
+                    false // Reset swipe position
+                }
+                SwipeToDismissBoxValue.EndToStart -> {
+                    playbackManager.addToQueue(song)
+                    Toast.makeText(context, "Added to queue", Toast.LENGTH_SHORT).show()
+                    false // Reset swipe position
+                }
+                else -> false
+            }
+        },
+    )
+
+    SwipeToDismissBox(
+        state = swipeState,
+        backgroundContent = {
+            val direction = swipeState.dismissDirection
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        when (direction) {
+                            SwipeToDismissBoxValue.StartToEnd -> MaterialTheme.colorScheme.primaryContainer
+                            SwipeToDismissBoxValue.EndToStart -> MaterialTheme.colorScheme.secondaryContainer
+                            else -> MaterialTheme.colorScheme.surface
+                        }
+                    )
+                    .padding(horizontal = 20.dp),
+                contentAlignment = when (direction) {
+                    SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                    else -> Alignment.CenterEnd
+                },
+            ) {
+                when (direction) {
+                    SwipeToDismissBoxValue.StartToEnd -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.SkipNext, contentDescription = "Play Next", tint = MaterialTheme.colorScheme.onPrimaryContainer)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Play Next", color = MaterialTheme.colorScheme.onPrimaryContainer, style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                    SwipeToDismissBoxValue.EndToStart -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Add to Queue", color = MaterialTheme.colorScheme.onSecondaryContainer, style = MaterialTheme.typography.labelMedium)
+                            Spacer(Modifier.width(4.dp))
+                            Icon(Icons.AutoMirrored.Filled.QueueMusic, contentDescription = "Add to Queue", tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                        }
+                    }
+                    else -> {}
+                }
+            }
+        },
+    ) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         modifier = modifier
             .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
             .clickable(onClick = onClick)
             .padding(start = 16.dp, top = 8.dp, bottom = 8.dp, end = 4.dp),
     ) {
         if (showTrackNumber && song.track != null) {
-            Text(
-                text = "${song.track}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.width(28.dp),
-            )
+            if (song.id == currentPlayingSongId && isCurrentlyPlaying) {
+                EqualizerBars(modifier = Modifier.width(28.dp))
+            } else {
+                Text(
+                    text = "${song.track}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.width(28.dp),
+                )
+            }
             Spacer(Modifier.width(12.dp))
         }
 
@@ -103,6 +184,12 @@ fun TrackListItem(
                 }
             }
         }
+
+        DownloadBadge(
+            songId = song.id,
+            downloadManager = downloadManager,
+            modifier = Modifier.padding(end = 4.dp),
+        )
 
         if (isStarred) {
             Icon(
@@ -211,9 +298,38 @@ fun TrackListItem(
                         }
                     },
                 )
+                // Rating row
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    (1..5).forEach { star ->
+                        IconButton(onClick = {
+                            showMenu = false
+                            val newRating = if (currentRating == star) 0 else star
+                            val oldRating = currentRating
+                            currentRating = newRating
+                            scope.launch {
+                                try {
+                                    appState.subsonicClient.setRating(song.id, newRating)
+                                } catch (_: Throwable) {
+                                    currentRating = oldRating
+                                }
+                            }
+                        }) {
+                            Icon(
+                                if (star <= currentRating) Icons.Default.Star else Icons.Default.StarBorder,
+                                contentDescription = "Rate $star",
+                                tint = if (star <= currentRating) Color(0xFFFFB300)
+                                else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                            )
+                        }
+                    }
+                }
             }
         }
     }
+    } // SwipeToDismissBox
 
     if (showPlaylistDialog) {
         AddToPlaylistDialog(
