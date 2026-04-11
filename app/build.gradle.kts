@@ -22,13 +22,22 @@ android {
         applicationId = "com.vibrdrome.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.2.0-alpha.2"
+        versionCode = 5
+        versionName = "1.2.0-alpha.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         ndk {
-            abiFilters += listOf("arm64-v8a", "x86_64")
+            // Include 32-bit for broader device support
+            // projectM visualizer only available on arm64/x86_64
+            abiFilters += listOf("arm64-v8a", "x86_64", "armeabi-v7a")
+        }
+
+        externalNativeBuild {
+            cmake {
+                // Only build native JNI for ABIs with projectM libs
+                abiFilters("arm64-v8a", "x86_64")
+            }
         }
     }
 
