@@ -1073,6 +1073,7 @@ class PlaybackManager(
 
         return ExoPlayer.Builder(appContext, renderersFactory)
             .setMediaSourceFactory(mediaSourceFactory)
+            .setWakeMode(androidx.media3.common.C.WAKE_MODE_NETWORK)
             .build()
     }
 

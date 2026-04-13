@@ -1,5 +1,6 @@
 package com.vibrdrome.app.audio
 
+import android.content.Intent
 import android.net.Uri
 import androidx.annotation.OptIn
 import androidx.media3.common.util.UnstableApi
@@ -45,6 +46,15 @@ class PlaybackService : MediaLibraryService() {
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaLibrarySession? {
         return session
+    }
+
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        val player = session?.player
+        if (player != null && player.playWhenReady) {
+            // Keep playing in background — don't stop the service
+        } else {
+            stopSelf()
+        }
     }
 
     override fun onDestroy() {

@@ -22,8 +22,8 @@ android {
         applicationId = "com.vibrdrome.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.2.0-alpha.3"
+        versionCode = 6
+        versionName = "1.2.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
