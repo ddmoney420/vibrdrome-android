@@ -645,6 +645,21 @@ class PlaybackManager(
 
     fun play(songs: List<Song>, startIndex: Int = 0) {
         if (songs.isEmpty()) return
+
+        // Route through jukebox if enabled
+        val jukeboxManager = try {
+            org.koin.java.KoinJavaComponent.getKoin().get<JukeboxManager>()
+        } catch (_: Throwable) { null }
+        if (jukeboxManager != null && jukeboxManager.enabled.value) {
+            player.pause()
+            jukeboxManager.playQueue(songs, startIndex)
+            // Still update local queue state for UI
+            _queue.value = songs
+            _currentIndex.value = startIndex
+            _currentSong.value = songs.getOrNull(startIndex)
+            return
+        }
+
         ensureServiceStarted()
         _queue.value = songs
         val client = appState.subsonicClient
@@ -681,6 +696,15 @@ class PlaybackManager(
     fun addToQueue(song: Song) {
         if (_queue.value.isEmpty()) {
             play(listOf(song))
+            return
+        }
+        // Route through jukebox if enabled
+        val jukeboxManager = try {
+            org.koin.java.KoinJavaComponent.getKoin().get<JukeboxManager>()
+        } catch (_: Throwable) { null }
+        if (jukeboxManager != null && jukeboxManager.enabled.value) {
+            jukeboxManager.addToQueue(song)
+            _queue.value = _queue.value + song
             return
         }
         ensureServiceStarted()

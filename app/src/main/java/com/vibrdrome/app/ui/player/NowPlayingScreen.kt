@@ -107,6 +107,8 @@ fun NowPlayingScreen(
     val jukeboxManager: JukeboxManager = koinInject()
     val isJukebox by jukeboxManager.enabled.collectAsState()
     val jukeboxGain by jukeboxManager.gain.collectAsState()
+    val jukeboxStatus by jukeboxManager.status.collectAsState()
+    val effectiveIsPlaying = if (isJukebox) jukeboxStatus?.playing ?: false else isPlaying
 
     var isStarred by remember(currentSong?.id) { mutableStateOf(currentSong?.starred != null) }
     var currentRating by remember(currentSong?.id) { mutableStateOf(currentSong?.userRating ?: 0) }
@@ -404,8 +406,7 @@ fun NowPlayingScreen(
                 FilledIconButton(
                     onClick = {
                         if (isJukebox) {
-                            val playing = jukeboxManager.status.value?.playing ?: false
-                            if (playing) jukeboxManager.stop() else jukeboxManager.play()
+                            if (effectiveIsPlaying) jukeboxManager.stop() else jukeboxManager.play()
                         } else {
                             playbackManager.togglePlayPause()
                         }
@@ -413,8 +414,8 @@ fun NowPlayingScreen(
                     modifier = Modifier.size(64.dp),
                 ) {
                     Icon(
-                        if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                        contentDescription = if (isPlaying) "Pause" else "Play",
+                        if (effectiveIsPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                        contentDescription = if (effectiveIsPlaying) "Pause" else "Play",
                         modifier = Modifier.size(32.dp),
                     )
                 }

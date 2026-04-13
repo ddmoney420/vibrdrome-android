@@ -1,5 +1,6 @@
 package com.vibrdrome.app.audio
 
+import android.util.Log
 import com.vibrdrome.app.network.JukeboxPlaylist
 import com.vibrdrome.app.network.JukeboxStatus
 import com.vibrdrome.app.network.Song
@@ -168,17 +169,24 @@ class JukeboxManager(private val appState: AppState) {
     }
 
     private fun jukeboxAction(action: suspend () -> Unit) {
-        if (!_enabled.value) return
+        if (!_enabled.value) {
+            Log.w("JukeboxManager", "Action ignored — jukebox not enabled")
+            return
+        }
         scope.launch {
             try {
+                Log.d("JukeboxManager", "Executing jukebox action")
                 action()
                 // Refresh status after action
                 val status = client.jukeboxStatus()
                 if (status != null) {
+                    Log.d("JukeboxManager", "Status: playing=${status.playing}, index=${status.currentIndex}, gain=${status.gain}")
                     _status.value = status
                     updateCurrentSong()
                 }
-            } catch (_: Exception) {}
+            } catch (e: Exception) {
+                Log.e("JukeboxManager", "Jukebox action failed", e)
+            }
         }
     }
 }
