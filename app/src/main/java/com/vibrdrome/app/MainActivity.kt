@@ -1,6 +1,8 @@
 package com.vibrdrome.app
 
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -37,6 +39,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalContext
 import com.vibrdrome.app.audio.PlaybackManager
 import com.vibrdrome.app.audio.ServerQueueInfo
 import com.vibrdrome.app.cast.CastManager
@@ -75,6 +78,9 @@ import com.vibrdrome.app.ui.settings.ServerConfigScreen
 import com.vibrdrome.app.ui.settings.ServerManagerScreen
 import com.vibrdrome.app.ui.settings.SettingsScreen
 import com.vibrdrome.app.ui.theme.VibrdromeAppTheme
+import com.vibrdrome.app.util.CrashReporter
+import com.vibrdrome.app.util.GitHubRelease
+import com.vibrdrome.app.util.UpdateChecker
 import androidx.lifecycle.lifecycleScope
 import org.koin.android.ext.android.inject
 import org.koin.compose.koinInject
@@ -134,6 +140,7 @@ private fun VibrdromeNavHost(appState: AppState) {
     val currentSong by playbackManager.currentSong.collectAsState()
     val currentCoverArtUrl by playbackManager.currentCoverArtUrl.collectAsState()
     val requiresReAuth by appState.requiresReAuth.collectAsState()
+    val context = LocalContext.current
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     // Safe back navigation — prevents double-tap from going past home screen
@@ -179,7 +186,7 @@ private fun VibrdromeNavHost(appState: AppState) {
     }
 
     // Prevent back press from going past the home screen to a blank state
-    val activity = androidx.compose.ui.platform.LocalContext.current as? ComponentActivity
+    val activity = context as? ComponentActivity
     BackHandler(navController.previousBackStackEntry == null) {
         activity?.moveTaskToBack(true)
     }
@@ -226,6 +233,67 @@ private fun VibrdromeNavHost(appState: AppState) {
                     appState.clearCredentials()
                     navController.navigate(ServerConfigRoute) { popUpTo(0) { inclusive = true } }
                 }) { Text("Sign Out") }
+            },
+        )
+    }
+
+    // Crash report dialog
+    var showCrashDialog by remember { mutableStateOf(CrashReporter.hasCrashLog(context)) }
+    if (showCrashDialog) {
+        val crashLog = remember { CrashReporter.getLatestCrashLog(context) }
+        AlertDialog(
+            onDismissRequest = {
+                CrashReporter.clearCrashLogs(context)
+                showCrashDialog = false
+            },
+            title = { Text("Crash Report") },
+            text = { Text("Vibrdrome crashed during the last session. Would you like to share the crash report?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val intent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_SUBJECT, "Vibrdrome Crash Report")
+                        putExtra(Intent.EXTRA_TEXT, crashLog)
+                    }
+                    context.startActivity(Intent.createChooser(intent, "Share Crash Report"))
+                    CrashReporter.clearCrashLogs(context)
+                    showCrashDialog = false
+                }) { Text("Share") }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    CrashReporter.clearCrashLogs(context)
+                    showCrashDialog = false
+                }) { Text("Dismiss") }
+            },
+        )
+    }
+
+    // In-app update check (once per day)
+    var updateAvailable by remember { mutableStateOf<GitHubRelease?>(null) }
+    LaunchedEffect(Unit) {
+        val prefs = context.getSharedPreferences("vibrdrome_prefs", Context.MODE_PRIVATE)
+        val lastCheck = prefs.getLong("last_update_check", 0)
+        val now = System.currentTimeMillis()
+        if (now - lastCheck > 24 * 60 * 60 * 1000) {
+            prefs.edit().putLong("last_update_check", now).apply()
+            updateAvailable = UpdateChecker.checkForUpdate(BuildConfig.VERSION_NAME)
+        }
+    }
+    if (updateAvailable != null) {
+        AlertDialog(
+            onDismissRequest = { updateAvailable = null },
+            title = { Text("Update Available") },
+            text = { Text("${updateAvailable!!.tag_name} is available. You're on v${BuildConfig.VERSION_NAME}.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(updateAvailable!!.html_url))
+                    context.startActivity(intent)
+                    updateAvailable = null
+                }) { Text("Download") }
+            },
+            dismissButton = {
+                TextButton(onClick = { updateAvailable = null }) { Text("Later") }
             },
         )
     }

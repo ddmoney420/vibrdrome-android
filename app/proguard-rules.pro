@@ -59,3 +59,12 @@
 
 # Compose Navigation type-safe routes
 -keep @kotlinx.serialization.Serializable class * { *; }
+
+# Last.fm API models
+-keep class com.vibrdrome.app.network.LastFm** { *; }
+
+# Update checker models
+-keep class com.vibrdrome.app.util.GitHubRelease { *; }
+
+# NowPlaying toolbar config
+-keep class com.vibrdrome.app.ui.player.ToolbarAction { *; }

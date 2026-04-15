@@ -1,6 +1,7 @@
 package com.vibrdrome.app
 
 import android.app.Application
+import com.vibrdrome.app.util.CrashReporter
 import com.vibrdrome.app.audio.HapticEngine
 import com.vibrdrome.app.audio.PlaybackManager
 import com.vibrdrome.app.audio.SleepTimer
@@ -20,6 +21,7 @@ class VibrdromeApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        CrashReporter.init(this)
         startKoin {
             androidContext(this@VibrdromeApp)
             modules(appModule)
