@@ -109,6 +109,7 @@ enum class ReplayGainMode {
     AUTO,
 }
 
+@androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
 class PlaybackManager(
     context: Context,
     private val appState: AppState,
