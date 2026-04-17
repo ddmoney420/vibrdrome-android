@@ -295,12 +295,31 @@ class PlaybackManager(
         }
 
         override fun onPlayerError(error: PlaybackException) {
+            android.util.Log.e("PlaybackManager", "Playback error: ${error.errorCodeName}", error)
             appState.showError("Playback error — retrying...")
             scope.launch {
-                delay(2000)
-                if (player.playbackState == Player.STATE_IDLE) {
-                    player.prepare()
-                    player.play()
+                delay(1500)
+                try {
+                    if (player.playbackState == Player.STATE_IDLE) {
+                        // Re-prepare and resume from current position
+                        val currentIndex = player.currentMediaItemIndex
+                        val currentPosition = player.currentPosition
+                        player.prepare()
+                        if (currentPosition > 0) {
+                            player.seekTo(currentIndex, currentPosition)
+                        }
+                        player.play()
+                    }
+                } catch (_: Exception) {
+                    // If retry fails, try skipping to next track
+                    delay(1500)
+                    try {
+                        if (player.hasNextMediaItem()) {
+                            player.seekToNextMediaItem()
+                            player.prepare()
+                            player.play()
+                        }
+                    } catch (_: Exception) {}
                 }
             }
         }
@@ -1099,6 +1118,14 @@ class PlaybackManager(
         return ExoPlayer.Builder(appContext, renderersFactory)
             .setMediaSourceFactory(mediaSourceFactory)
             .setWakeMode(androidx.media3.common.C.WAKE_MODE_NETWORK)
+            .setHandleAudioBecomingNoisy(true)
+            .setAudioAttributes(
+                androidx.media3.common.AudioAttributes.Builder()
+                    .setUsage(androidx.media3.common.C.USAGE_MEDIA)
+                    .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MUSIC)
+                    .build(),
+                /* handleAudioFocus= */ true,
+            )
             .build()
     }
 
