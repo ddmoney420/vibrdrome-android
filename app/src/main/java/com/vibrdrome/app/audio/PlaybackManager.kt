@@ -1115,8 +1115,20 @@ class PlaybackManager(
         val dataSourceFactory = DefaultDataSource.Factory(appContext, httpDataSourceFactory)
         val mediaSourceFactory = DefaultMediaSourceFactory(dataSourceFactory)
 
+        // Aggressive buffering to survive Android background network throttling
+        val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                /* minBufferMs= */ 30_000,
+                /* maxBufferMs= */ 120_000,   // Buffer up to 2 minutes ahead
+                /* bufferForPlaybackMs= */ 2_500,
+                /* bufferForPlaybackAfterRebufferMs= */ 5_000,
+            )
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
+
         return ExoPlayer.Builder(appContext, renderersFactory)
             .setMediaSourceFactory(mediaSourceFactory)
+            .setLoadControl(loadControl)
             .setWakeMode(androidx.media3.common.C.WAKE_MODE_NETWORK)
             .setHandleAudioBecomingNoisy(true)
             .setAudioAttributes(
