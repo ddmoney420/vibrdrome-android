@@ -1138,7 +1138,10 @@ class PlaybackManager(
                     .build(),
                 /* handleAudioFocus= */ true,
             )
-            .build()
+            .build().also { player ->
+                // Pre-load 30s of next track in playlist to survive background network throttling
+                player.preloadConfiguration = ExoPlayer.PreloadConfiguration(/* targetPreloadDurationUs= */ 30_000_000L)
+            }
     }
 
     // MARK: - Persistence
