@@ -88,10 +88,16 @@ fun SettingsScreen(
     val smartTransitions: SmartTransitions = koinInject()
     val adaptiveBitrate: AdaptiveBitrate = koinInject()
     val jukeboxManager: JukeboxManager = koinInject()
-    var cacheSizeMb by remember { mutableLongStateOf(0L) }
+    var cacheSizeBytes by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(Unit) {
-        cacheSizeMb = cacheManager.currentCacheSizeMb()
+        cacheSizeBytes = cacheManager.currentCacheSizeBytes()
+    }
+
+    val cacheSizeDisplay = when {
+        cacheSizeBytes >= 1024 * 1024 -> "${cacheSizeBytes / (1024 * 1024)} MB"
+        cacheSizeBytes >= 1024 -> "${cacheSizeBytes / 1024} KB"
+        else -> "$cacheSizeBytes bytes"
     }
     val serverUrl by appState.serverURL.collectAsState()
     val username by appState.username.collectAsState()
@@ -453,7 +459,7 @@ fun SettingsScreen(
             SectionHeader("Storage")
             ListItem(
                 headlineContent = { Text("Cache Size") },
-                supportingContent = { Text("${cacheSizeMb} MB used") },
+                supportingContent = { Text("$cacheSizeDisplay used") },
                 leadingContent = { Icon(Icons.Default.Storage, contentDescription = null) },
             )
             ListItem(
@@ -463,7 +469,7 @@ fun SettingsScreen(
                 modifier = Modifier.clickable {
                     scope.launch {
                         cacheManager.evictApiCache()
-                        cacheSizeMb = cacheManager.currentCacheSizeMb()
+                        cacheSizeBytes = cacheManager.currentCacheSizeBytes()
                     }
                 },
             )
@@ -509,6 +515,24 @@ fun SettingsScreen(
                 supportingContent = { Text("Version ${com.vibrdrome.app.BuildConfig.VERSION_NAME}") },
                 leadingContent = { Icon(Icons.Default.Info, contentDescription = null) },
             )
+
+            val networkMonitor: com.vibrdrome.app.persistence.NetworkMonitor = koinInject()
+            val pendingCount by networkMonitor.pendingActionCount.collectAsState()
+            if (pendingCount > 0) {
+                val offlineQueue: com.vibrdrome.app.persistence.OfflineActionQueue = koinInject()
+                ListItem(
+                    headlineContent = { Text("Pending sync actions") },
+                    supportingContent = { Text("$pendingCount action${if (pendingCount > 1) "s" else ""} waiting to sync") },
+                    trailingContent = {
+                        TextButton(onClick = {
+                            scope.launch {
+                                offlineQueue.clear()
+                                android.widget.Toast.makeText(context, "Cleared", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }) { Text("Clear") }
+                    },
+                )
+            }
 
             Spacer(Modifier.height(80.dp))
         }

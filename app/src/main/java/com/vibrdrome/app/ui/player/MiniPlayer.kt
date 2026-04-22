@@ -141,14 +141,6 @@ fun MiniPlayer(
                                     modifier = Modifier.weight(1f, fill = false),
                                 )
                             }
-                            if (pendingActions > 0) {
-                                Spacer(Modifier.width(6.dp))
-                                Text(
-                                    text = "$pendingActions pending",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.tertiary,
-                                )
-                            }
                         }
                     }
                 }

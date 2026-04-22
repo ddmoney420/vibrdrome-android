@@ -16,9 +16,13 @@ class CacheManager(
     var maxCacheSizeMb: Long = 500
 
     suspend fun currentCacheSizeMb(): Long = withContext(Dispatchers.IO) {
+        currentCacheSizeBytes() / (1024 * 1024)
+    }
+
+    suspend fun currentCacheSizeBytes(): Long = withContext(Dispatchers.IO) {
         val apiCache = cacheDir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
         val downloads = downloadDir.walkTopDown().filter { it.isFile }.sumOf { it.length() }
-        (apiCache + downloads) / (1024 * 1024)
+        apiCache + downloads
     }
 
     suspend fun currentDownloadSizeMb(): Long = withContext(Dispatchers.IO) {
