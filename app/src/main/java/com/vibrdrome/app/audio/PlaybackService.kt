@@ -126,19 +126,48 @@ class PlaybackService : MediaLibraryService() {
             startIndex: Int,
             startPositionMs: Long,
         ): ListenableFuture<MediaItemsWithStartPosition> {
-            // Resolve URIs for all items
             val client = appState.subsonicClient
-            val resolved = mediaItems.map { item ->
-                if (item.localConfiguration?.uri != null) item
-                else MediaItem.Builder()
-                    .setMediaId(item.mediaId)
-                    .setUri(client.streamURL(item.mediaId))
-                    .setMediaMetadata(item.mediaMetadata)
-                    .build()
+            val future = SettableFuture.create<MediaItemsWithStartPosition>()
+
+            scope.launch {
+                try {
+                    // If a single song is selected, load the full album for continuous playback
+                    if (mediaItems.size == 1) {
+                        val songId = mediaItems[0].mediaId
+                        val song = try { client.getSong(songId) } catch (_: Throwable) { null }
+                        if (song?.albumId != null) {
+                            val album = client.getAlbum(song.albumId!!)
+                            val songs = album.song ?: emptyList()
+                            val albumItems = songs.map { buildPlayable(it, client) }
+                            val selectedIndex = songs.indexOfFirst { it.id == songId }.coerceAtLeast(0)
+                            future.set(MediaItemsWithStartPosition(albumItems, selectedIndex, startPositionMs))
+                            return@launch
+                        }
+                    }
+
+                    // Default: resolve URIs for all items
+                    val resolved = mediaItems.map { item ->
+                        if (item.localConfiguration?.uri != null) item
+                        else MediaItem.Builder()
+                            .setMediaId(item.mediaId)
+                            .setUri(client.streamURL(item.mediaId))
+                            .setMediaMetadata(item.mediaMetadata)
+                            .build()
+                    }
+                    future.set(MediaItemsWithStartPosition(resolved, startIndex, startPositionMs))
+                } catch (_: Throwable) {
+                    val resolved = mediaItems.map { item ->
+                        if (item.localConfiguration?.uri != null) item
+                        else MediaItem.Builder()
+                            .setMediaId(item.mediaId)
+                            .setUri(client.streamURL(item.mediaId))
+                            .setMediaMetadata(item.mediaMetadata)
+                            .build()
+                    }
+                    future.set(MediaItemsWithStartPosition(resolved, startIndex, startPositionMs))
+                }
             }
-            return Futures.immediateFuture(
-                MediaItemsWithStartPosition(resolved, startIndex, startPositionMs)
-            )
+            return future
         }
     }
 
