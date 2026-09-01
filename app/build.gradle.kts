@@ -16,14 +16,14 @@ if (localPropsFile.exists()) {
 
 android {
     namespace = "com.vibrdrome.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.vibrdrome.app"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 9
-        versionName = "1.2.2"
+        targetSdk = 36
+        versionCode = 10
+        versionName = "1.2.3-alpha.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
