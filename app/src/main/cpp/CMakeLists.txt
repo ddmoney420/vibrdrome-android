@@ -22,3 +22,7 @@ target_link_libraries(projectm_jni
     GLESv2
     EGL
 )
+
+# Align to 16 KB pages — required by Google Play for native apps targeting
+# Android 15+. NDK r27 still defaults to 4 KB; r28+ does this automatically.
+target_link_options(projectm_jni PRIVATE "-Wl,-z,max-page-size=16384")
